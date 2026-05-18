@@ -1,0 +1,19 @@
+# Dependencies
+node_modules
+
+# Environment variables — NEVER commit these
+.env
+
+# Build output
+dist
+build
+
+# Mac junk
+.DS_Store
+
+# Logs
+*.log
+npm-debug.log*
+
+# VS Code
+.vscode
