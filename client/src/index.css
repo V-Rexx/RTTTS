@@ -1,0 +1,110 @@
+@import "tailwindcss";
+
+@layer base {
+  body {
+    @apply bg-slate-900 text-slate-50 antialiased font-sans selection:bg-indigo-500/30;
+    background-color: #0F172A;
+  }
+}
+
+@layer components {
+  /* Premium Primary Button */
+  .btn-primary {
+    @apply inline-flex items-center justify-center px-4 py-2.5 rounded-lg text-sm font-semibold transition-all duration-200 shadow-md shadow-indigo-600/20 hover:shadow-indigo-600/30 active:scale-[0.98] disabled:opacity-50 disabled:pointer-events-none;
+    background-color: #4F46E5;
+    color: #F8FAFC;
+  }
+  .btn-primary:hover {
+    background-color: #4338CA;
+  }
+
+  /* Ghost Button */
+  .btn-ghost {
+    @apply inline-flex items-center justify-center px-4 py-2.5 rounded-lg text-sm font-semibold transition-all duration-200 hover:bg-slate-800 text-slate-300 hover:text-slate-100 active:scale-[0.98] disabled:opacity-50 disabled:pointer-events-none;
+  }
+
+  /* Danger Button */
+  .btn-danger {
+    @apply inline-flex items-center justify-center px-4 py-2.5 rounded-lg text-sm font-semibold transition-all duration-200 shadow-md shadow-red-600/20 hover:shadow-red-600/30 active:scale-[0.98] disabled:opacity-50 disabled:pointer-events-none;
+    background-color: #EF4444;
+    color: #F8FAFC;
+  }
+  .btn-danger:hover {
+    background-color: #DC2626;
+  }
+
+  /* Premium Form Input Field */
+  .input-field {
+    @apply w-full px-4 py-2.5 rounded-lg text-sm bg-slate-800 border transition-all duration-200 outline-none text-slate-100 placeholder-slate-500;
+    border-color: #334155;
+  }
+  .input-field:focus {
+    @apply ring-2 ring-indigo-500/20;
+    border-color: #4F46E5;
+  }
+
+  /* Premium Card Component */
+  .card {
+    @apply rounded-xl border transition-all duration-300;
+    background-color: #1E293B;
+    border-color: #334155;
+  }
+
+  /* Glassmorphism Panel Overlay */
+  .glass-panel {
+    @apply bg-slate-900/85 backdrop-blur-md border rounded-xl shadow-2xl;
+    border-color: #334155;
+  }
+  
+  /* Scrollbar custom styles */
+  ::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+  ::-webkit-scrollbar-track {
+    background: #0F172A;
+  }
+  ::-webkit-scrollbar-thumb {
+    background: #334155;
+    border-radius: 9999px;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    background: #4F46E5;
+  }
+
+  /* Dark theme overrides for Leaflet OpenStreetMap tiles */
+  .dark-leaflet-tiles {
+    filter: invert(90%) hue-rotate(180deg) brightness(95%) contrast(90%) !important;
+  }
+
+  .leaflet-container {
+    background: #0F172A !important;
+  }
+
+  /* Style premium popups to match slate-900 look */
+  .premium-leaflet-popup .leaflet-popup-content-wrapper {
+    background: #1E293B !important;
+    color: #F8FAFC !important;
+    border: 1px solid #334155 !important;
+    border-radius: 12px !important;
+    padding: 2px !important;
+    box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.4), 0 4px 6px -2px rgba(0, 0, 0, 0.25) !important;
+  }
+
+  .premium-leaflet-popup .leaflet-popup-tip {
+    background: #1E293B !important;
+    border: 1px solid #334155 !important;
+  }
+
+  .leaflet-popup-close-button {
+    color: #94A3B8 !important;
+    font-size: 16px !important;
+    padding: 8px !important;
+    top: 4px !important;
+    right: 4px !important;
+  }
+
+  .leaflet-popup-close-button:hover {
+    color: #F1F5F9 !important;
+  }
+}
