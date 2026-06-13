@@ -59,7 +59,7 @@ const SEED_DATA = {
     { _id: 's26', name: 'Cinnamara Tea Estate', lat: 26.7150, lng: 94.2180, city: 'jorhat', routes: ['r11'] }
   ],
   ROUTES: [
-    { _id: 'r1', routeNumber: '500C', name: 'Silk Board - KR Puram', color: '#4F46E5', city: 'bangalore', stops: ['s1', 's2', 's3', 's4', 's5'] },
+    { _id: 'r1', routeNumber: '500C', name: 'Silk Board - KR Puram', color: '#3B82F6', city: 'bangalore', stops: ['s1', 's2', 's3', 's4', 's5'] },
     { _id: 'r2', routeNumber: 'G-3', name: 'Majestic - Indiranagar', color: '#10B981', city: 'bangalore', stops: ['s6', 's7', 's8', 's9', 's10', 's4'] },
     { _id: 'r3', routeNumber: '365', name: 'Majestic - Bannerghatta National Park', color: '#EF4444', city: 'bangalore', stops: ['s6', 's11', 's12', 's13', 's14'] },
     
@@ -67,7 +67,7 @@ const SEED_DATA = {
     { _id: 'r30', routeNumber: '101', name: 'Colaba - CSMT Hub', color: '#EF4444', city: 'mumbai', stops: ['s30', 's31', 's32', 's33'] },
 
     // Jorhat Routes
-    { _id: 'r10', routeNumber: '1A', name: 'ISBT - Rowriah Airport', color: '#4F46E5', city: 'jorhat', stops: ['s20', 's21', 's22', 's23'] },
+    { _id: 'r10', routeNumber: '1A', name: 'ISBT - Rowriah Airport', color: '#3B82F6', city: 'jorhat', stops: ['s20', 's21', 's22', 's23'] },
     { _id: 'r11', routeNumber: '2B', name: 'Jorhat Junction - Cinnamara', color: '#10B981', city: 'jorhat', stops: ['s24', 's25', 's26'] }
   ],
   DRIVERS: [
@@ -197,7 +197,7 @@ if (useMock) {
 
       // Check admin
       if (token === 'admin-token') {
-        return { _id: 'admin_user', name: 'Admin', email: 'admin@citytrack.com', role: 'admin', avatarColor: '#4F46E5' };
+        return { _id: 'admin_user', name: 'Admin', email: 'admin@citytrack.com', role: 'admin', avatarColor: '#F59E0B' };
       }
       return null;
     };
@@ -209,7 +209,7 @@ if (useMock) {
         
         // Admin check
         if (email === 'admin@citytrack.com' && password === 'admin123') {
-          const user = { _id: 'admin_user', name: 'Fleet Administrator', email: 'admin@citytrack.com', role: 'admin', avatarColor: '#4F46E5' };
+          const user = { _id: 'admin_user', name: 'Fleet Administrator', email: 'admin@citytrack.com', role: 'admin', avatarColor: '#F59E0B' };
           localStorage.setItem(KEYS.CURRENT_USER, JSON.stringify(user));
           return jsonResponse({ user, accessToken: 'admin-token' });
         }

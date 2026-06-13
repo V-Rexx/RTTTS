@@ -42,21 +42,47 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="relative min-h-screen bg-slate-950 flex flex-col items-center justify-center p-4 selection:bg-indigo-500/20">
+    <div className="relative min-h-screen bg-slate-950 overflow-hidden flex flex-col items-center justify-center p-4 selection:bg-indigo-500/20">
       {/* Background Mesh Glows */}
-      <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[350px] h-[350px] rounded-full bg-indigo-600/10 blur-[100px] pointer-events-none" />
+     {/* Background Grid */}
+<div className="absolute inset-0 opacity-[0.03]">
+  <div
+    className="w-full h-full"
+    style={{
+      backgroundImage:
+        "linear-gradient(rgba(255,255,255,.08) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,.08) 1px, transparent 1px)",
+      backgroundSize: "40px 40px",
+    }}
+  />
+</div>
+
+{/* Ambient Glow */}
+<div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[700px] h-[700px] rounded-full bg-indigo-600/10 blur-[180px] pointer-events-none" />
 
       {/* Main card panel */}
-      <div className="card max-w-md w-full p-6 md:p-8 bg-slate-900 border border-slate-800 rounded-2xl shadow-2xl flex flex-col gap-6 select-none animate-scale-in">
+      <div className="relative max-w-lg w-full p-8 md:p-10 bg-slate-900/90 backdrop-blur-xl border border-slate-800 rounded-3xl shadow-2xl flex flex-col gap-6 select-none animate-scale-in">
         {/* Header Branding */}
         <div className="flex flex-col items-center text-center gap-1.5 border-b border-slate-850 pb-5 select-none">
-          <div className="w-9 h-9 rounded-xl bg-indigo-600 flex items-center justify-center font-black text-slate-100 shadow-lg shadow-indigo-600/30 border border-indigo-500 mb-1">
-            CT
-          </div>
-          <h2 className="text-xl font-bold text-slate-100 uppercase tracking-wide">
-            Staff Authentication
-          </h2>
-          <p className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">Secure Fleet Controller Portal</p>
+          <div className="relative mb-2">
+  <div className="absolute inset-0 bg-amber-500 blur-xl opacity-40 rounded-xl" />
+
+  <div className="relative w-12 h-12 rounded-2xl bg-amber-500 flex items-center justify-center font-black text-white text-lg border border-amber-400 shadow-xl shadow-amber-500/20">
+    CT
+  </div>
+</div>
+        <div className="flex items-center gap-2 px-3 py-1 rounded-full border border-emerald-500/20 bg-emerald-500/10">
+    <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+    <span className="text-[10px] text-emerald-400 font-bold uppercase tracking-wider">
+      Fleet Network Online
+    </span>
+  </div>
+          <h2 className="text-3xl font-black text-white uppercase tracking-[0.12em]">
+  Fleet Command
+</h2>
+          <p className="text-xs text-slate-500 uppercase tracking-[0.25em] font-semibold">
+  Real-Time Transit Operations Center
+  
+</p>
         </div>
 
         {/* Error Banner */}

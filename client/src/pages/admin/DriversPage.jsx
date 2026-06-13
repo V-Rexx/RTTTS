@@ -86,16 +86,16 @@ export default function DriversPage() {
 
   return (
     <AdminLayout>
-      <div className="flex items-center justify-between border-b border-slate-850 pb-5 select-none">
+      <div className="flex items-center justify-between border-b border-slate-200 pb-5 select-none">
         <div className="flex flex-col gap-1.5">
-          <span className="text-[10px] font-black uppercase tracking-[0.25em] text-indigo-400 font-mono">
+          <span className="text-[10px] font-black uppercase tracking-[0.25em] text-orange-500 font-mono">
             System Control Console
           </span>
-          <h1 className="text-2xl font-black text-slate-100 uppercase tracking-wide">
+          <h1 className="text-3xl font-black text-slate-900 uppercase tracking-wide">
             Manage Drivers
           </h1>
         </div>
-        <Button onClick={handleOpenCreate} className="px-4 py-2.5 text-xs font-bold uppercase tracking-wider">
+        <Button onClick={handleOpenCreate} className="px-5 py-3 bg-emerald-500 hover:bg-emerald-600 text-white rounded-xl shadow-lg text-xs font-bold uppercase tracking-wider">
           Create Driver Account
         </Button>
       </div>
@@ -103,7 +103,7 @@ export default function DriversPage() {
       {loading ? (
         <Spinner size="lg" />
       ) : (
-        <div className="card border border-slate-800/80 bg-slate-900 rounded-2xl shadow-xl overflow-hidden">
+        <div className="bg-slate-900 rounded-3xl shadow-2xl overflow-hidden border border-slate-800">
           <table className="w-full text-left text-xs border-collapse">
             <thead>
               <tr className="bg-slate-950/40 text-slate-400 uppercase font-black tracking-wider text-[9px] border-b border-slate-800 select-none">
@@ -122,20 +122,22 @@ export default function DriversPage() {
                 </tr>
               ) : (
                 drivers.map((drv) => (
-                  <tr key={drv._id} className="hover:bg-slate-850/30 transition-colors">
+                  <tr key={drv._id} className="hover:bg-slate-800/40 transition-all duration-200">
                     <td className="px-5 py-4 flex items-center gap-2.5">
                       <div
                         style={{ backgroundColor: drv.avatarColor }}
-                        className="w-7 h-7 rounded-full flex items-center justify-center text-slate-950 text-[10px] font-black uppercase shadow select-none"
+                        className="w-10 h-10 rounded-full flex items-center justify-center text-white text-sm font-black shadow-lg border-2 border-white text-slate-950 text-[10px] font-black uppercase shadow select-none"
                       >
                         {drv.name.slice(0, 2)}
                       </div>
                       <span className="text-slate-100 font-bold">{drv.name}</span>
                     </td>
                     <td className="px-5 py-4 font-mono text-slate-400 select-all">{drv.email}</td>
-                    <td className="px-5 py-4 font-bold text-indigo-400 uppercase tracking-wider text-[10px]">
-                      {drv.role}
-                    </td>
+                    <td className="px-5 py-4">
+  <span className="px-3 py-1 rounded-full bg-emerald-100 text-emerald-700 text-[10px] font-bold uppercase tracking-wider">
+    {drv.role}
+  </span>
+</td>
                     <td className="px-5 py-4 text-right select-none flex justify-end gap-2">
                       <Button
                         onClick={() => handleDelete(drv._id)}

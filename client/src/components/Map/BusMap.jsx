@@ -82,7 +82,7 @@ function MapController({ center }) {
 
 export default function BusMap({ cityCenter, zoom = 13, children }) {
   return (
-    <div className="relative w-full h-full overflow-hidden select-none border border-slate-800/80 rounded-2xl shadow-inner bg-slate-950">
+    <div className="relative w-full h-full overflow-hidden bg-white">
       <MapContainer
         center={cityCenter}
         zoom={zoom}
@@ -92,7 +92,7 @@ export default function BusMap({ cityCenter, zoom = 13, children }) {
         {/* Leaflet Dark Theme filter overrides on tiles layer */}
         <TileLayer
           url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-          className="dark-leaflet-tiles"
+          
           attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
         />
         

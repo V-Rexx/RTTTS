@@ -1,5 +1,28 @@
 @import "tailwindcss";
 
+@theme {
+  --color-indigo-50: #fef3c7;
+  --color-indigo-100: #fde68a;
+  --color-indigo-200: #fcd34d;
+  --color-indigo-300: #fbbf24;
+  --color-indigo-400: #f59e0b;
+  --color-indigo-500: #f59e0b;
+  --color-indigo-600: #d97706;
+  --color-indigo-700: #b45309;
+  --color-indigo-800: #92400e;
+  --color-indigo-900: #78350f;
+  --color-indigo-950: #451a03;
+
+  --color-brand-bg: #0f172a;
+  --color-brand-surface: #1e293b;
+  --color-brand-border: #334155;
+  --color-brand-text: #f8fafc;
+  --color-brand-primary: #f59e0b;
+  --color-brand-active: #10b981;
+  --color-brand-warning: #f59e0b;
+  --color-brand-error: #ef4444;
+}
+
 @layer base {
   body {
     @apply bg-slate-900 text-slate-50 antialiased font-sans selection:bg-indigo-500/30;
@@ -11,11 +34,11 @@
   /* Premium Primary Button */
   .btn-primary {
     @apply inline-flex items-center justify-center px-4 py-2.5 rounded-lg text-sm font-semibold transition-all duration-200 shadow-md shadow-indigo-600/20 hover:shadow-indigo-600/30 active:scale-[0.98] disabled:opacity-50 disabled:pointer-events-none;
-    background-color: #4F46E5;
-    color: #F8FAFC;
+    background-color: #F59E0B;
+    color: #0F172A;
   }
   .btn-primary:hover {
-    background-color: #4338CA;
+    background-color: #D97706;
   }
 
   /* Ghost Button */
@@ -40,7 +63,7 @@
   }
   .input-field:focus {
     @apply ring-2 ring-indigo-500/20;
-    border-color: #4F46E5;
+    border-color: #F59E0B;
   }
 
   /* Premium Card Component */
@@ -52,9 +75,10 @@
 
   /* Glassmorphism Panel Overlay */
   .glass-panel {
-    @apply bg-slate-900/85 backdrop-blur-md border rounded-xl shadow-2xl;
-    border-color: #334155;
-  }
+  background: rgba(255,255,255,0.95);
+  backdrop-filter: blur(12px);
+  border-radius: 16px;
+}
   
   /* Scrollbar custom styles */
   ::-webkit-scrollbar {
@@ -69,7 +93,7 @@
     border-radius: 9999px;
   }
   ::-webkit-scrollbar-thumb:hover {
-    background: #4F46E5;
+    background: #F59E0B;
   }
 
   /* Dark theme overrides for Leaflet OpenStreetMap tiles */

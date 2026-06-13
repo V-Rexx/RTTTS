@@ -187,20 +187,48 @@ export default function BusesPage() {
               ) : (
                 buses.map((bus) => (
                   <tr key={bus._id} className="hover:bg-slate-850/30 transition-colors">
-                    <td className="px-5 py-4 text-slate-100 font-bold font-mono">{bus.busNumber}</td>
+                    <td className="px-5 py-4">
+  <div className="flex flex-col">
+    <span className="font-extrabold text-slate-100 font-mono">
+      {bus.busNumber}
+    </span>
+    <span className="text-[10px] text-slate-500 uppercase tracking-wider">
+      Fleet Unit
+    </span>
+  </div>
+</td>
                     <td className="px-5 py-4 font-mono text-slate-400">{bus.plateNumber}</td>
-                    <td className="px-5 py-4 text-indigo-400 font-bold">{bus.routeNumber}</td>
-                    <td className="px-5 py-4 font-medium">{bus.driverName}</td>
+                    <td className="px-5 py-4">
+  <div className="inline-flex items-center gap-2">
+    <span className="w-2.5 h-2.5 rounded-full bg-indigo-500"></span>
+    <span className="font-bold text-indigo-400">
+      {bus.routeNumber}
+    </span>
+  </div>
+</td>
+                    <td className="px-5 py-4">
+  <div className="flex items-center gap-2">
+    <div className="w-7 h-7 rounded-full bg-indigo-600/20 border border-indigo-500/30 flex items-center justify-center text-[10px] font-black text-indigo-400">
+      {bus.driverName?.slice(0,2)}
+    </div>
+
+    <span className="font-semibold text-slate-100">
+      {bus.driverName}
+    </span>
+  </div>
+</td>
                     <td className="px-5 py-4 select-none">
-                      <span className={`px-2 py-0.5 rounded text-[8px] font-black uppercase border tracking-wider ${
-                        bus.status === 'active' 
-                          ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20'
-                          : bus.status === 'breakdown'
-                          ? 'bg-red-500/10 text-red-400 border-red-500/20 animate-pulse'
-                          : 'bg-slate-850 text-slate-500 border-slate-800'
-                      }`}>
-                        {bus.status}
-                      </span>
+                      <span
+  className={`px-3 py-1 rounded-full text-[9px] font-black uppercase tracking-widest border ${
+    bus.status === 'active'
+      ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20'
+      : bus.status === 'breakdown'
+      ? 'bg-red-500/10 text-red-400 border-red-500/20 animate-pulse'
+      : 'bg-slate-800 text-slate-400 border-slate-700'
+  }`}
+>
+  {bus.status}
+</span>
                     </td>
                     <td className="px-5 py-4 text-right select-none flex justify-end gap-2">
                       <Button
