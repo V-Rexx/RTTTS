@@ -72,10 +72,10 @@ function CityMapPageContent() {
   const mapCenter = [city.lat, city.lng];
 
   return (
-    <div className="relative w-screen h-screen bg-slate-950 flex flex-col overflow-hidden">
+    <div className="relative w-screen h-screen bg-[#F7F5F0] overflow-hidden">
       {/* Header HUD Overlay */}
-      <header className="absolute top-4 left-1/2 -translate-x-1/2 z-[1010] w-full max-w-md px-4 pointer-events-none">
-        <div className="glass-panel p-3 px-4 flex items-center justify-between border border-slate-800/80 shadow-2xl select-none pointer-events-auto">
+      <header className="absolute top-5 left-1/2 -translate-x-1/2 z-[1000] w-full max-w-xl px-4">
+        <div className="bg-white rounded-2xl border border-gray-200 shadow-lg px-5 py-4 flex items-center justify-between">
           <button
             onClick={() => navigate('/')}
             className="p-2 hover:bg-slate-800 text-slate-400 hover:text-slate-200 transition-all rounded-lg outline-none flex items-center justify-center flex-shrink-0"
@@ -87,23 +87,23 @@ function CityMapPageContent() {
           </button>
 
           <div className="flex flex-col items-center text-center">
-            <span className="text-[10px] font-black uppercase tracking-[0.2em] text-indigo-400 font-mono">
+            <span className="text-[10px] font-black uppercase tracking-[0.2em] text-emerald-600 font-mono">
               Broadcasting Live
             </span>
-            <h2 className="text-sm font-extrabold text-slate-100 uppercase tracking-wide">
+            <h2 className="text-sm font-extrabold text-slate-900 uppercase tracking-wide">
               {city.name} Transit Network
             </h2>
           </div>
 
-          <div className="w-8 h-8 rounded-lg bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center flex-shrink-0 select-none">
+          <div className="w-8 h-8 rounded-lg bg-emerald-100 border border-emerald-500/20 flex items-center justify-center flex-shrink-0 select-none">
             <span className="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-pulse" />
           </div>
         </div>
       </header>
 
       {/* Floating Route Filter Overlays - Top Right */}
-      <div className="absolute top-4 right-4 z-[1000] flex flex-col gap-2.5 items-end pointer-events-auto">
-        <div className="glass-panel p-3 border border-slate-800/80 shadow-2xl w-44 flex flex-col gap-2 select-none">
+      <div className="absolute top-6 right-4 z-[1000] flex flex-col gap-2.5 items-end pointer-events-auto">
+        <div className="bg-white rounded-2xl border border-gray-200 shadow-lg p-3 border border-slate-800/80 shadow-2xl w-56 flex flex-col gap-2 select-none">
           <span className="text-[9px] font-bold text-slate-400 uppercase tracking-widest border-b border-slate-800 pb-1.5 flex items-center gap-1.5">
             <svg className="w-3.5 h-3.5 text-indigo-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7" />
@@ -115,7 +115,7 @@ function CityMapPageContent() {
               onClick={() => setActiveRouteFilter(null)}
               className={`w-full text-left px-2.5 py-1.5 rounded text-[10px] font-bold uppercase tracking-wider transition-all border ${
                 activeRouteFilter === null
-                  ? 'bg-indigo-600/15 border-indigo-500/30 text-indigo-400 font-extrabold shadow shadow-indigo-600/5'
+                  ? 'bg-emerald-50 border-indigo-500/30 text-emerald-700 font-extrabold shadow shadow-indigo-600/5'
                   : 'bg-slate-850/50 border-slate-800 text-slate-400 hover:text-slate-200 hover:border-slate-750'
               }`}
             >

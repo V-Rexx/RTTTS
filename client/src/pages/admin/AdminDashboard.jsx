@@ -111,14 +111,15 @@ export default function AdminDashboard() {
   return (
     <AdminLayout>
       {/* HUD Header */}
-      <div className="flex flex-col gap-1.5 border-b border-slate-850 pb-5 select-none">
-        <span className="text-[10px] font-black uppercase tracking-[0.25em] text-indigo-400 font-mono">
-          System Control HUD
-        </span>
-        <h1 className="text-2xl font-black text-slate-100 uppercase tracking-wide">
-          Live Fleet Overview
-        </h1>
-      </div>
+      <div className="flex flex-col gap-1.5 border-b border-slate-200 pb-5 select-none">
+  <span className="text-[10px] font-black uppercase tracking-[0.25em] text-orange-500 font-mono">
+    System Control HUD
+  </span>
+
+  <h1 className="text-3xl font-black text-slate-900 uppercase tracking-wide">
+    Live Fleet Overview
+  </h1>
+</div>
 
       {loading ? (
         <Spinner size="lg" />

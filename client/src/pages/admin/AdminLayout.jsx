@@ -57,18 +57,18 @@ export default function AdminLayout({ children }) {
   }
 
   return (
-    <div className="relative min-h-screen bg-slate-950 flex overflow-hidden">
+    <div className="relative min-h-screen bg-[#F8F7F3] flex overflow-hidden">
       {/* Sidebar Navigation */}
-      <aside className="w-64 bg-slate-900 border-r border-slate-800 flex flex-col justify-between flex-shrink-0 select-none z-[10]">
+      <aside className="w-64 bg-white border-r border-slate-200 flex flex-col justify-between flex-shrink-0 select-none z-[10] shadow-sm">
         <div className="flex flex-col gap-6">
           {/* Logo Branding */}
           <div className="px-6 py-5 border-b border-slate-850 flex items-center gap-2.5 select-none">
-            <div className="w-8 h-8 rounded-xl bg-indigo-600 flex items-center justify-center font-black text-slate-100 shadow-lg shadow-indigo-600/30 border border-indigo-500">
-              CT
-            </div>
+            <div className="w-8 h-8 rounded-xl bg-emerald-500 flex items-center justify-center font-black text-white">
+  CT
+</div>
             <div className="flex flex-col gap-0.5">
-              <span className="text-xs font-black uppercase tracking-wider text-slate-100 font-sans">Fleet Command</span>
-              <span className="text-[8px] uppercase tracking-widest font-black text-slate-500 font-mono">
+              <span className="text-xs font-black uppercase tracking-wider text-slate-900 font-sans">Fleet Command</span>
+              <span className="text-[8px] uppercase tracking-widest font-black text-slate-400 font-mono">
                 Role: Administrator
               </span>
             </div>
@@ -84,8 +84,8 @@ export default function AdminLayout({ children }) {
                   onClick={() => navigate(item.path)}
                   className={`flex items-center gap-3.5 px-4 py-3 rounded-lg text-xs font-bold uppercase tracking-wider transition-all duration-200 outline-none ${
                     active
-                      ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/10'
-                      : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/50'
+                      ? 'bg-emerald-500 text-white shadow-md'
+                      : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
                   }`}
                 >
                   <svg className="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -101,17 +101,17 @@ export default function AdminLayout({ children }) {
         {/* Footer controls */}
         <div className="p-4 border-t border-slate-850 flex flex-col gap-3">
           <div className="flex items-center gap-2 px-2 select-none">
-            <div className="w-7 h-7 rounded-full bg-indigo-600/20 border border-indigo-500/30 flex items-center justify-center text-xs font-black text-indigo-400">
+            <div className="w-7 h-7 rounded-full bg-emerald-100 border border-emerald-200 flex items-center justify-center text-xs font-black text-emerald-600">
               A
             </div>
             <div className="flex flex-col gap-0.5 text-[9px]">
-              <span className="font-bold text-slate-300">Fleet Administrator</span>
-              <span className="text-slate-500 font-mono font-bold">admin@citytrack.com</span>
+              <span className="font-bold text-slate-800">Fleet Administrator</span>
+              <span className="text-slate-500 font-mono">admin@citytrack.com</span>
             </div>
           </div>
           <button
             onClick={handleLogout}
-            className="w-full text-center py-2 hover:bg-red-500/10 hover:text-red-400 border border-transparent hover:border-red-500/10 rounded-lg text-[10px] font-bold uppercase tracking-wider text-slate-400 transition-all select-none outline-none"
+            className="w-full text-center py-2 hover:bg-red-50 hover:text-red-500 border border-transparent hover:border-red-200 rounded-lg text-[10px] font-bold uppercase tracking-wider text-slate-500 transition-all select-none outline-none"
           >
             Sign Out
           </button>
@@ -119,7 +119,7 @@ export default function AdminLayout({ children }) {
       </aside>
 
       {/* Main Core Content container */}
-      <main className="flex-1 flex flex-col min-w-0 overflow-y-auto">
+      <main className="flex-1 flex flex-col min-w-0 overflow-y-auto bg-[#F8F7F3]">
         <div className="p-6 md:p-8 max-w-6xl w-full mx-auto flex flex-col gap-6">
           {children}
         </div>
