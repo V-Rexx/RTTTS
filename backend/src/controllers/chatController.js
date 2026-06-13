@@ -9,7 +9,6 @@ const handleChat = async (req, res) => {
       return res.status(400).json({ message: 'User message and city slug are required' });
     }
 
-    // 1. Fetch live stops, routes, and active buses in the database for this city!
     const stops = await Stop.find({ city: citySlug });
     const routes = await Route.find({ city: citySlug });
     const buses = await Bus.find({ city: citySlug, status: 'active' });
@@ -18,7 +17,6 @@ const handleChat = async (req, res) => {
     let actionToken = "";
     const msgLower = message.toLowerCase();
 
-    // 2. City Specific Context-Aware AI Conversational Engine
     if (citySlug === 'jorhat') {
       if (msgLower.includes('airport') || msgLower.includes('flight') || msgLower.includes('rowriah')) {
         reply = `To get to **Rowriah Airport** in Jorhat, take **Route 1A** starting from ISBT Jorhat. It halts at Baruah Chariali and Jorhat Court before reaching Rowriah Airport. There are currently active buses traversing this path.`;
@@ -42,7 +40,6 @@ const handleChat = async (req, res) => {
         reply = `Welcome to Jorhat AI Commute! I have live access to the database. Currently there are ${routes.length} active routes, ${stops.length} registered stops, and ${buses.length} online buses.`;
       }
     } 
-    // Default (Bangalore)
     else {
       if (msgLower.includes('airport') || msgLower.includes('flight')) {
         reply = `To get to the Airport, catch **Route 500C** from Silk Board. It makes stops at HSR Layout, Bellandur, and Marathahalli. There are currently active buses running.`;

@@ -28,7 +28,7 @@ const busSchema = new mongoose.Schema({
     route: {
         type: mongoose.Schema.Types.ObjectId,
         ref: 'Route',
-        reuqired: true
+        required: true
     },
 
     city: {

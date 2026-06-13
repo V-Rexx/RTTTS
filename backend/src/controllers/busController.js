@@ -1,175 +1,396 @@
-const Bus = require('../models/Bus');
-const User = require('../models/User');
-const City = require('../models/City');
-const mongoose = require('mongoose');
+const Bus = require('../models/Bus')
+const Route = require('../models/Route')
+const City = require('../models/City')
+const User = require('../models/User')
+const Stop = require('../models/Stop')
+const mongoose = require('mongoose')
+const busManager = require('../utils/busManager')
+const { haversine, walkingTimeSeconds, busTravelTimeSeconds } = require('../utils/haversine')
+
+
 
 const getBuses = async (req, res) => {
   try {
-    const { driver, city } = req.query;
+    const { driver, city } = req.query
+    const filter = {}
 
     if (driver === 'me') {
-      if (!req.user) return res.status(401).json({ message: 'Unauthorized' });
-      const buses = await Bus.find({ driverId: req.user._id });
-      return res.json(buses);
+      if (!req.user) {
+        return res.status(401).json({ message: 'Authentication required' })
+      }
+      filter.driver = req.user._id
     }
 
-    let filter = {};
     if (city) {
       if (mongoose.Types.ObjectId.isValid(city)) {
-        filter.city = city;
+        filter.city = city
       } else {
-        const foundCity = await City.findOne({ slug: city.toLowerCase() });
-        if (foundCity) {
-          filter.city = foundCity._id;
-        } else {
-          // If no city found by slug, return empty buses
-          return res.json([]);
+        const foundCity = await City.findOne({ slug: city.toLowerCase() })
+        if (!foundCity) {
+          return res.status(404).json({ message: 'City not found' })
         }
+        filter.city = foundCity._id
       }
     }
 
-    const buses = await Bus.find(filter);
-    res.json(buses);
+    const buses = await Bus.find(filter)
+      .populate('driver', 'name email avatarColor')
+      .populate('route', 'routeNumber routeName color')
+      .populate('city', 'name slug')
+      .sort({ busNumber: 1 })
+      .limit(500)
+
+    res.json({ buses })
+
   } catch (err) {
-    res.status(500).json({ message: 'Server error fetching buses' });
+    console.error('getBuses error:', err)
+    res.status(500).json({ message: 'Server error fetching buses' })
   }
-};
+}
 
 const getLiveBuses = async (req, res) => {
   try {
-    const { city } = req.query;
-    let filter = { status: { $in: ['active', 'breakdown'] } };
-    
+    const { city } = req.query
+
+    const filter = {
+      isOnline: true,
+      status: { $in: ['active', 'breakdown'] },
+      'currentLocation.lat': { $ne: null }   
+    }
+
     if (city) {
       if (mongoose.Types.ObjectId.isValid(city)) {
-        filter.city = city;
+        filter.city = city
       } else {
-        const foundCity = await City.findOne({ slug: city.toLowerCase() });
-        if (foundCity) {
-          filter.city = foundCity._id;
-        } else {
-          // If no city found by slug, return empty live buses
-          return res.json({ buses: [] });
+        const foundCity = await City.findOne({ slug: city.toLowerCase(), isActive: true })
+        if (!foundCity) {
+          return res.status(404).json({ message: 'City not found' })
+        }
+        filter.city = foundCity._id
+      }
+    }
+
+    const buses = await Bus.find(filter)
+      .populate('driver', 'name avatarColor')
+      .populate('route', 'routeNumber color')
+      .select('busNumber currentLocation status isOnline route driver city lastUpdated')
+      .limit(500)
+
+    res.json({ buses })
+
+  } catch (err) {
+    console.error('getLiveBuses error:', err)
+    res.status(500).json({ message: 'Server error fetching live buses' })
+  }
+}
+
+const createBus = async (req, res) => {
+  try {
+    const { busNumber, plateNumber, driverId, routeId, citySlug } = req.body
+
+    if (!busNumber || !plateNumber || !driverId || !routeId || !citySlug) {
+      return res.status(400).json({ 
+        message: 'busNumber, plateNumber, driverId, routeId, and citySlug are required' 
+      })
+    }
+
+    const driver = await User.findById(driverId)
+    if (!driver) {
+      return res.status(404).json({ message: 'Driver not found' })
+    }
+    if (driver.role !== 'driver') {
+      return res.status(400).json({ message: 'Assigned user must have driver role' })
+    }
+
+    const city = await City.findOne({ slug: citySlug.toLowerCase() })
+    if (!city) {
+      return res.status(404).json({ message: 'City not found' })
+    }
+
+    const route = await Route.findById(routeId)
+    if (!route) {
+      return res.status(404).json({ message: 'Route not found' })
+    }
+    if (route.city.toString() !== city._id.toString()) {
+      return res.status(400).json({ 
+        message: 'Route must belong to the same city as the bus' 
+      })
+    }
+
+    const existing = await Bus.findOne({ plateNumber: plateNumber.toUpperCase() })
+    if (existing) {
+      return res.status(409).json({ message: 'Plate number already registered' })
+    }
+
+    const bus = await Bus.create({
+      busNumber,
+      plateNumber,
+      driver: driverId,
+      route: routeId,
+      city: city._id,
+    })
+
+    const populated = await Bus.findById(bus._id)
+      .populate('driver', 'name email')
+      .populate('route', 'routeNumber routeName')
+      .populate('city', 'name slug')
+
+    res.status(201).json({ bus: populated })
+
+  } catch (err) {
+    if (err.name === 'ValidationError') {
+      return res.status(400).json({ message: err.message })
+    }
+    if (err.code === 11000) {
+      return res.status(409).json({ message: 'Plate number already exists' })
+    }
+    console.error('createBus error:', err)
+    res.status(500).json({ message: 'Server error creating bus' })
+  }
+}
+
+const updateBus = async (req, res) => {
+  try {
+    const { busNumber, plateNumber, driverId, routeId, status, isActive } = req.body
+
+    const bus = await Bus.findById(req.params.id)
+    if (!bus) {
+      return res.status(404).json({ message: 'Bus not found' })
+    }
+
+    if (routeId !== undefined) {
+      const route = await Route.findById(routeId)
+      if (!route) {
+        return res.status(404).json({ message: 'Route not found' })
+      }
+      if (route.city.toString() !== bus.city.toString()) {
+        return res.status(400).json({ 
+          message: 'Route must belong to the same city as the bus' 
+        })
+      }
+      bus.route = routeId
+    }
+
+    if (driverId !== undefined) {
+      const driver = await User.findById(driverId)
+      if (!driver) {
+        return res.status(404).json({ message: 'Driver not found' })
+      }
+      if (driver.role !== 'driver') {
+        return res.status(400).json({ message: 'Assigned user must have driver role' })
+      }
+      bus.driver = driverId
+    }
+
+    if (busNumber !== undefined) bus.busNumber = busNumber
+    if (plateNumber !== undefined) bus.plateNumber = plateNumber
+    if (status !== undefined) bus.status = status
+
+    await bus.save()
+
+    const populated = await Bus.findById(bus._id)
+      .populate('driver', 'name email')
+      .populate('route', 'routeNumber routeName')
+      .populate('city', 'name slug')
+
+    res.json({ bus: populated })
+
+  } catch (err) {
+    if (err.name === 'ValidationError') {
+      return res.status(400).json({ message: err.message })
+    }
+    console.error('updateBus error:', err)
+    res.status(500).json({ message: 'Server error updating bus' })
+  }
+}
+
+const deleteBus = async (req, res) => {
+  try {
+    const bus = await Bus.findByIdAndDelete(req.params.id)
+    if (!bus) {
+      return res.status(404).json({ message: 'Bus not found' })
+    }
+    res.json({ message: 'Bus deleted', bus })
+  } catch (err) {
+    console.error('deleteBus error:', err)
+    res.status(500).json({ message: 'Server error deleting bus' })
+  }
+}
+
+
+const updateLocation = async (req, res) => {
+  try {
+    const { lat, lng } = req.body
+
+    if (lat === undefined || lng === undefined) {
+      return res.status(400).json({ message: 'lat and lng are required' })
+    }
+
+    const bus = await Bus.findOne({ driver: req.user._id })
+      .populate('city', 'slug')
+
+    if (!bus) {
+      return res.status(404).json({ message: 'No bus assigned to this driver' })
+    }
+
+    bus.currentLocation = { lat, lng }
+    bus.isOnline = true
+    bus.lastUpdated = new Date()
+    if (bus.status === 'inactive') bus.status = 'active'
+
+    await bus.save()
+
+    try {
+      const { io } = require('../index')
+      if (io && bus.city?.slug) {
+        io.to(bus.city.slug).emit('bus-location', {
+          busId: bus._id,
+          busNumber: bus.busNumber,
+          route: bus.route,
+          lat,
+          lng,
+          status: bus.status,
+          isOnline: true,
+          lastUpdated: bus.lastUpdated
+        })
+      }
+    } catch (broadcastErr) {
+      console.error('Broadcast failed:', broadcastErr.message)
+    }
+
+    res.json({ success: true, lastUpdated: bus.lastUpdated })
+
+  } catch (err) {
+    console.error('updateLocation error:', err)
+    res.status(500).json({ message: 'Server error updating location' })
+  }
+}
+
+const reportBreakdown = async (req, res) => {
+  try {
+    const bus = await Bus.findOne({ driver: req.user._id })
+      .populate('city', 'slug')
+
+    if (!bus) {
+      return res.status(404).json({ message: 'No bus assigned to this driver' })
+    }
+
+    bus.status = 'breakdown'
+    await bus.save()
+
+    try {
+      const { io } = require('../index')
+      if (io && bus.city?.slug) {
+        io.to(bus.city.slug).emit('bus-breakdown', {
+          busId: bus._id,
+          busNumber: bus.busNumber,
+          message: req.body.message || 'Bus reported as broken down'
+        })
+      }
+    } catch (broadcastErr) {
+      console.error('Breakdown broadcast failed:', broadcastErr.message)
+    }
+
+    res.json({ success: true, bus: bus.toLiveState() })
+
+  } catch (err) {
+    console.error('reportBreakdown error:', err)
+    res.status(500).json({ message: 'Server error reporting breakdown' })
+  }
+}
+
+// ─── GET /api/buses/catchable?lat=&lng=&maxStopDistance= ──
+// "Find buses near me that I can actually catch"
+// Public
+const getNearestCatchableBuses = async (req, res) => {
+  try {
+    const userLat = parseFloat(req.query.lat)
+    const userLng = parseFloat(req.query.lng)
+    const maxStopDistance = parseInt(req.query.maxStopDistance) || 1500   // metres
+
+    if (isNaN(userLat) || isNaN(userLng)) {
+      return res.status(400).json({ 
+        message: 'lat and lng required and must be numbers' 
+      })
+    }
+
+    // 1. Find nearest stops to the user (uses 2dsphere)
+    const nearbyStops = await Stop.find({
+      location: {
+        $near: {
+          $geometry: { type: 'Point', coordinates: [userLng, userLat] },
+          $maxDistance: maxStopDistance
+        }
+      }
+    })
+      .populate('city', 'slug')
+      .limit(5)
+
+    if (nearbyStops.length === 0) {
+      return res.json({ catchableBuses: [], reason: 'No stops within walking distance' })
+    }
+
+    // 2. For each stop, find live buses on routes that include this stop,
+    //    calculate ETAs, walk times, and catchability.
+    const catchableBuses = []
+
+    for (const stop of nearbyStops) {
+      const stopLng = stop.location.coordinates[0]
+      const stopLat = stop.location.coordinates[1]
+
+      // Distance + walking time from user to this stop
+      const walkDistance = haversine(userLat, userLng, stopLat, stopLng)
+      const walkSeconds = walkingTimeSeconds(walkDistance)
+
+      // Get all live buses in this city
+      const liveBuses = busManager.getBusesByCity(stop.city.slug)
+
+      for (const bus of liveBuses) {
+        // Skip buses without GPS yet
+        if (typeof bus.lat !== 'number' || typeof bus.lng !== 'number') continue
+        if (bus.status === 'breakdown') continue
+
+        // Distance from bus to stop
+        const busToStopDistance = haversine(bus.lat, bus.lng, stopLat, stopLng)
+
+        // ETA for bus to reach stop
+        const busEtaSeconds = busTravelTimeSeconds(busToStopDistance, bus.speed)
+
+        // Can the user reach the stop before the bus?
+        // Add a 30-second buffer for safety (don't sprint to barely-miss)
+        const isCatchable = walkSeconds + 30 <= busEtaSeconds
+
+        if (isCatchable) {
+          catchableBuses.push({
+            busId: bus._id,
+            busNumber: bus.busNumber,
+            route: bus.route,
+            stop: {
+              _id: stop._id,
+              name: stop.name,
+              lat: stopLat,
+              lng: stopLng
+            },
+            walkDistance: Math.round(walkDistance),
+            walkTimeSeconds: Math.round(walkSeconds),
+            busEtaSeconds: Math.round(busEtaSeconds),
+            currentLocation: { lat: bus.lat, lng: bus.lng }
+          })
         }
       }
     }
 
-    const activeBuses = await Bus.find(filter);
+    // 3. Sort by bus ETA — soonest arrivals first
+    catchableBuses.sort((a, b) => a.busEtaSeconds - b.busEtaSeconds)
 
-    // Resolve driver names
-    const resolvedBuses = await Promise.all(activeBuses.map(async (bus) => {
-      const driver = await User.findById(bus.driverId);
-      return {
-        _id: bus._id,
-        busNumber: bus.busNumber,
-        plateNumber: bus.plateNumber,
-        lat: bus.lat,
-        lng: bus.lng,
-        speed: bus.speed,
-        status: bus.status,
-        routeId: bus.routeId,
-        driverName: driver ? driver.name : 'Unknown'
-      };
-    }));
+    res.json({ catchableBuses: catchableBuses.slice(0, 10) })
 
-    res.json({ buses: resolvedBuses });
   } catch (err) {
-    res.status(500).json({ message: 'Server error fetching live buses' });
+    console.error('getNearestCatchableBuses error:', err)
+    res.status(500).json({ message: 'Server error finding catchable buses' })
   }
-};
+}
 
-const createBus = async (req, res) => {
-  try {
-    const { busNumber, plateNumber, driverId, routeId, city } = req.body;
-    if (!busNumber || !plateNumber || !city) {
-      return res.status(400).json({ message: 'Bus code, plate number, and city are required' });
-    }
-
-    const newBus = new Bus({
-      busNumber,
-      plateNumber,
-      driverId: driverId || null,
-      routeId: routeId || null,
-      city,
-      status: 'offline',
-      lat: 12.9716,
-      lng: 77.5946,
-      speed: 0
-    });
-
-    await newBus.save();
-    res.status(201).json(newBus);
-  } catch (err) {
-    res.status(500).json({ message: 'Server error registering bus' });
-  }
-};
-
-const updateBus = async (req, res) => {
-  try {
-    const { id } = req.params;
-    const { busNumber, plateNumber, driverId, routeId, status, lat, lng, speed } = req.body;
-
-    const bus = await Bus.findById(id);
-    if (!bus) return res.status(404).json({ message: 'Bus not found' });
-
-    if (busNumber) bus.busNumber = busNumber;
-    if (plateNumber) bus.plateNumber = plateNumber;
-    if (driverId !== undefined) bus.driverId = driverId || null;
-    if (routeId !== undefined) bus.routeId = routeId || null;
-    if (status) bus.status = status;
-    if (lat !== undefined) bus.lat = lat;
-    if (lng !== undefined) bus.lng = lng;
-    if (speed !== undefined) bus.speed = speed;
-
-    await bus.save();
-    res.json(bus);
-  } catch (err) {
-    res.status(500).json({ message: 'Server error updating bus' });
-  }
-};
-
-const deleteBus = async (req, res) => {
-  try {
-    const { id } = req.params;
-    const bus = await Bus.findByIdAndDelete(id);
-    if (!bus) return res.status(404).json({ message: 'Bus not found' });
-    res.json({ message: 'Bus deleted successfully' });
-  } catch (err) {
-    res.status(500).json({ message: 'Server error deleting bus' });
-  }
-};
-
-const updateLocation = async (req, res) => {
-  try {
-    const { busId, lat, lng, speed } = req.body;
-    if (!busId || lat === undefined || lng === undefined) {
-      return res.status(400).json({ message: 'BusId and location coordinates are required' });
-    }
-
-    const bus = await Bus.findById(busId);
-    if (!bus) return res.status(404).json({ message: 'Bus not found' });
-
-    bus.lat = lat;
-    bus.lng = lng;
-    bus.speed = speed || 0;
-    await bus.save();
-
-    // Dynamically require index to fetch Socket.io singleton and avoid circular dependencies
-    const { io } = require('../index');
-    if (io) {
-      io.to(bus.city).emit('bus-location', {
-        busId: bus._id,
-        lat,
-        lng,
-        speed: bus.speed
-      });
-    }
-
-    res.json({ success: true });
-  } catch (err) {
-    res.status(500).json({ message: 'Server error updating coordinates' });
-  }
-};
 
 module.exports = {
   getBuses,
@@ -177,5 +398,7 @@ module.exports = {
   createBus,
   updateBus,
   deleteBus,
-  updateLocation
-};
+  updateLocation,
+  reportBreakdown,
+  getNearestCatchableBuses
+}

@@ -1,7 +1,6 @@
 const mongoose = require('mongoose')
 const bcrypt = require('bcryptjs')
 
-//random colors for every user created
 const AVATAR_COLORS = [
     '#FF6B6B', '#4ECDC4', '#45B7D1', '#96CEB4',
   '#FFEAA7', '#DDA0DD', '#98D8C8', '#F7DC6F',
@@ -22,7 +21,7 @@ const userSchema = new mongoose.Schema({
         required: true,
         unique: true,
         lowercase: true,
-        trim: true   // removes leading/trailing spaces
+        trim: true   
     },
 
     passwordHash: {
@@ -32,7 +31,7 @@ const userSchema = new mongoose.Schema({
 
     role: {
         type: String,
-        enum: ['driver', 'admin'],      //only this two values allowed
+        enum: ['driver', 'admin'],      
         required: true
     },
 
@@ -43,7 +42,7 @@ const userSchema = new mongoose.Schema({
 
     refreshToken: {
         type: String,
-        default: null       //empty until they log in
+        default: null      
     },
 }, {
     timestamps: true            //adds createdAT + updatedAT

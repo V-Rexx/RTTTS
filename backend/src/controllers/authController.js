@@ -1,7 +1,6 @@
 const jwt = require('jsonwebtoken')
 const User = require('../models/User')
 
-// ─── Token generation helper ────────────────────────────
 const generateTokens = (userId) => {
   const accessToken = jwt.sign(
     { userId },
@@ -16,7 +15,6 @@ const generateTokens = (userId) => {
   return { accessToken, refreshToken }
 }
 
-// ─── Cookie configuration ───────────────────────────────
 const COOKIE_OPTIONS = {
   httpOnly: true,
   secure: process.env.NODE_ENV === 'production',
@@ -24,7 +22,6 @@ const COOKIE_OPTIONS = {
   maxAge: 7 * 24 * 60 * 60 * 1000   // 7 days
 }
 
-// ─── POST /api/auth/login ───────────────────────────────
 const login = async (req, res) => {
   try {
     const { email, password } = req.body
@@ -60,7 +57,6 @@ const login = async (req, res) => {
   }
 }
 
-// ─── POST /api/auth/refresh ─────────────────────────────
 const refresh = async (req, res) => {
   try {
     const token = req.cookies.refreshToken
@@ -87,7 +83,6 @@ const refresh = async (req, res) => {
   }
 }
 
-// ─── POST /api/auth/logout ──────────────────────────────
 const logout = async (req, res) => {
   try {
     const token = req.cookies.refreshToken
@@ -96,7 +91,7 @@ const logout = async (req, res) => {
         const decoded = jwt.verify(token, process.env.JWT_REFRESH_SECRET)
         await User.findByIdAndUpdate(decoded.userId, { refreshToken: null })
       } catch (err) {
-        // already invalid — just clear cookie
+       
       }
     }
     res.clearCookie('refreshToken')
@@ -107,12 +102,10 @@ const logout = async (req, res) => {
   }
 }
 
-// ─── GET /api/auth/me ───────────────────────────────────
 const me = async (req, res) => {
   res.json({ user: req.user.toPublic() })
 }
 
-// ─── POST /api/auth/register (admin-only later) ─────────
 const register = async (req, res) => {
   try {
     const { name, email, password, role } = req.body

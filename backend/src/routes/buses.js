@@ -1,18 +1,23 @@
-const express = require('express');
-const router = express.Router();
-const busController = require('../controllers/busController');
-const authMiddleware = require('../middleware/authMiddleware');
+const express = require('express')
+const router = express.Router()
+const busController = require('../controllers/busController')
+const authMiddleware = require('../middleware/authMiddleware')
+const roleMiddleware = require('../middleware/roleMiddleware')
 
-// Public endpoints
-router.get('/live', busController.getLiveBuses);
+// Public — specific routes BEFORE parameterized
+router.get('/live', busController.getLiveBuses)
+router.get('/catchable', busController.getNearestCatchableBuses)   // ← new
 
-// Protected endpoints (driver/admin)
-router.get('/', authMiddleware, busController.getBuses);
-router.post('/location', authMiddleware, busController.updateLocation);
+// Driver-only — SW posts GPS here
+router.post('/location', authMiddleware, busController.updateLocation)
+router.post('/breakdown', authMiddleware, busController.reportBreakdown)
 
-// Admin protected endpoints
-router.post('/', authMiddleware, busController.createBus);
-router.put('/:id', authMiddleware, busController.updateBus);
-router.delete('/:id', authMiddleware, busController.deleteBus);
+// Either driver or admin
+router.get('/', authMiddleware, busController.getBuses)
 
-module.exports = router;
+// Admin-only fleet management
+router.post('/', authMiddleware, roleMiddleware('admin'), busController.createBus)
+router.put('/:id', authMiddleware, roleMiddleware('admin'), busController.updateBus)
+router.delete('/:id', authMiddleware, roleMiddleware('admin'), busController.deleteBus)
+
+module.exports = router

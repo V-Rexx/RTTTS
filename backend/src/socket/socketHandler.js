@@ -1,124 +1,71 @@
-const Bus = require('../models/Bus');
-const User = require('../models/User');
+const socketAuthMiddleware = require('../middleware/socketAuthMiddleware')
+const registerDriverEvents = require('./driverEvents')
+const registerLocationEvents = require('./locationEvents')
+const busManager = require('../utils/busManager')
+const Bus = require('../models/Bus')
 
-function setupSocket(io) {
+const initSocketHandler = (io) => {
+
+  const driverNs = io.of('/driver')
+  driverNs.use(socketAuthMiddleware)
+
+  driverNs.on('connection', (socket) => {
+    console.log(`Driver connected: ${socket.data.user.name} (${socket.id})`)
+
+    registerDriverEvents(io, socket)
+    registerLocationEvents(io, socket)
+  })
+
   io.on('connection', (socket) => {
-    console.log(`🔌 New client connected: ${socket.id}`);
+    console.log(`Passenger connected: ${socket.id}`)
 
-    // Passenger subscribes to a specific city map room
-    socket.on('subscribe-city', async ({ citySlug }) => {
-      socket.join(citySlug);
-      console.log(`📍 Client ${socket.id} subscribed to city room: ${citySlug}`);
+    socket.on('subscribe-city', ({ citySlug }) => {
+      if (!citySlug || typeof citySlug !== 'string') return
+      const slug = citySlug.toLowerCase()
+      socket.join(slug)
+      const buses = busManager.getBusesByCity(slug)
+      socket.emit('initial-state', { buses })
+    })
 
-      try {
-        // Send initial live buses for this city on subscription
-        const activeBuses = await Bus.find({ 
-          city: citySlug, 
-          status: { $in: ['active', 'breakdown'] } 
-        });
-
-        // Resolve driver names for these active buses
-        const resolvedBuses = await Promise.all(activeBuses.map(async (bus) => {
-          const driver = await User.findById(bus.driverId);
-          return {
-            _id: bus._id,
-            busNumber: bus.busNumber,
-            plateNumber: bus.plateNumber,
-            lat: bus.lat,
-            lng: bus.lng,
-            speed: bus.speed,
-            status: bus.status,
-            routeId: bus.routeId,
-            driverName: driver ? driver.name : 'Unknown'
-          };
-        }));
-
-        socket.emit('initial-state', { buses: resolvedBuses });
-      } catch (err) {
-        console.error('Error fetching initial live buses for socket:', err.message);
-      }
-    });
-
-    // Driver starting their shift
-    socket.on('driver-connect', async ({ busId }) => {
-      console.log(`🚍 Driver connected with Bus ID: ${busId}`);
-      
-      try {
-        const bus = await Bus.findById(busId);
-        if (bus) {
-          bus.status = 'active';
-          await bus.save();
-
-          const driver = await User.findById(bus.driverId);
-          const driverName = driver ? driver.name : 'Unknown';
-
-          const onlinePayload = {
-            busId: bus._id,
-            busNumber: bus.busNumber,
-            driverName,
-            lat: bus.lat,
-            lng: bus.lng,
-            speed: bus.speed,
-            status: 'active',
-            routeId: bus.routeId,
-            city: bus.city
-          };
-
-          // Broadcast to the city room
-          io.to(bus.city).emit('bus-online', onlinePayload);
-        }
-      } catch (err) {
-        console.error('Error in socket driver-connect:', err.message);
-      }
-    });
-
-    // Driver ending their shift
-    socket.on('driver-disconnect', async ({ busId }) => {
-      console.log(`🚍 Driver disconnected from Bus ID: ${busId}`);
-      
-      try {
-        const bus = await Bus.findById(busId);
-        if (bus) {
-          bus.status = 'offline';
-          bus.speed = 0;
-          await bus.save();
-
-          // Broadcast offline event to city room
-          io.to(bus.city).emit('bus-offline', { busId: bus._id });
-        }
-      } catch (err) {
-        console.error('Error in socket driver-disconnect:', err.message);
-      }
-    });
-
-    // Driver reporting mechanical breakdown
-    socket.on('bus-breakdown', async ({ busId, message }) => {
-      console.log(`🚨 Emergency reported for Bus ID ${busId}: ${message}`);
-      
-      try {
-        const bus = await Bus.findById(busId);
-        if (bus) {
-          bus.status = 'breakdown';
-          bus.speed = 0;
-          await bus.save();
-
-          const breakdownPayload = {
-            busId: bus._id,
-            message: message || 'Mechanical breakdown reported by driver.'
-          };
-
-          // Broadcast emergency to the city room
-          io.to(bus.city).emit('bus-breakdown', breakdownPayload);
-        }
-      } catch (err) {
-        console.error('Error in socket bus-breakdown:', err.message);
-      }
-    });
+    socket.on('unsubscribe-city', ({ citySlug }) => {
+      if (citySlug) socket.leave(citySlug.toLowerCase())
+    })
 
     socket.on('disconnect', () => {
-      console.log(`🔌 Client disconnected: ${socket.id}`);
-    });
-  });
+    
+    })
+  })
+
+  
+  setInterval(async () => {
+    const STALE_TIMEOUT_MS = 30000   
+    const stale = busManager.findStaleBuses(STALE_TIMEOUT_MS)
+
+    for (const busId of stale) {
+      const cached = busManager.getBus(busId)
+      if (!cached) continue
+
+      busManager.removeBus(busId)
+
+      try {
+        await Bus.findByIdAndUpdate(busId, {
+          isOnline: false,
+          status: 'inactive'
+        })
+      } catch (err) {
+        console.error('Stale bus DB update failed:', err.message)
+      }
+
+      if (cached.citySlug) {
+        io.to(cached.citySlug).emit('bus-offline', {
+          busId,
+          busNumber: cached.busNumber
+        })
+      }
+    }
+  }, 10000)
+
+  console.log('Socket.io initialized — /driver (auth) + / (passenger)')
 }
 
-module.exports = setupSocket;
+module.exports = initSocketHandler

@@ -1,26 +1,5 @@
 const City = require('../models/City');
 
-// Auto-seed hubs if database is empty on connection
-async function seedCitiesIfEmpty() {
-  try {
-    const count = await City.countDocuments();
-    if (count === 0) {
-      console.log('🌱 Seed database empty. Pre-seeding Bangalore, Mumbai, and Jorhat hubs...');
-      await City.create([
-        { name: 'Bangalore', slug: 'bangalore', center: { lat: 12.9716, lng: 77.5946 }, zoom: 12 },
-        { name: 'Mumbai', slug: 'mumbai', center: { lat: 19.0760, lng: 72.8777 }, zoom: 11 },
-        { name: 'Jorhat', slug: 'jorhat', center: { lat: 26.7509, lng: 94.2037 }, zoom: 13 }
-      ]);
-      console.log('✅ Pre-seeded cities successfully.');
-    }
-  } catch (err) {
-    console.error('Error auto-seeding database hubs:', err.message);
-  }
-}
-
-// Trigger check
-setTimeout(seedCitiesIfEmpty, 2000);
-
 const getCities = async (req, res) => {
   try {
     const { search } = req.query;
@@ -44,7 +23,6 @@ const getCityBySlug = async (req, res) => {
     if (!city) {
       return res.status(404).json({ message: 'City profile not found' });
     }
-    // Shape back center coordinate for leaflet standard format
     const reshaped = {
       _id: city._id,
       name: city.name,

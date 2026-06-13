@@ -1,128 +1,182 @@
-const Route = require('../models/Route');
-const Stop = require('../models/Stop');
-const City = require('../models/City');
-const mongoose = require('mongoose');
+const Route = require('../models/Route')
+const City = require('../models/City')
+const Stop = require('../models/Stop')
+const mongoose = require('mongoose')
+
+const validateStopsForCity = async (stopIds, cityId) => {
+  if (!Array.isArray(stopIds) || stopIds.length === 0) {
+    return { valid: true }  
+  }
+
+  for (const id of stopIds) {
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      return { valid: false, message: `Invalid stop ID: ${id}` }
+    }
+  }
+
+  const stops = await Stop.find({ _id: { $in: stopIds }, city: cityId })
+
+  if (stops.length !== stopIds.length) {
+    return { 
+      valid: false, 
+      message: 'One or more stops do not exist or do not belong to this city' 
+    }
+  }
+
+  return { valid: true }
+}
 
 const getRoutes = async (req, res) => {
   try {
-    const { city } = req.query;
-    let query = {};
+    const { city } = req.query
+    const filter = { isActive: true }
+
     if (city) {
       if (mongoose.Types.ObjectId.isValid(city)) {
-        query.city = city;
+        filter.city = city
       } else {
-        const foundCity = await City.findOne({ slug: city.toLowerCase() });
-        if (foundCity) {
-          query.city = foundCity._id;
-        } else {
-          // If no city found by slug, return empty routes
-          return res.json([]);
+        const foundCity = await City.findOne({ slug: city.toLowerCase() })
+        if (!foundCity) {
+          return res.status(404).json({ message: 'City not found' })
         }
+        filter.city = foundCity._id
       }
     }
-    const routes = await Route.find(query);
-    res.json(routes);
+
+    const routes = await Route.find(filter)
+      .populate('city', 'name slug')
+      .populate('stops', 'name location')
+      .sort({ routeNumber: 1 })
+      .limit(200)
+
+    res.json({ routes })
+
   } catch (err) {
-    res.status(500).json({ message: 'Server error fetching routes' });
+    console.error('getRoutes error:', err)
+    res.status(500).json({ message: 'Server error fetching routes' })
   }
-};
+}
+
+const getRouteById = async (req, res) => {
+  try {
+    const route = await Route.findById(req.params.id)
+      .populate('city', 'name slug')
+      .populate('stops', 'name location')
+
+    if (!route) {
+      return res.status(404).json({ message: 'Route not found' })
+    }
+
+    res.json({ route })
+
+  } catch (err) {
+    console.error('getRouteById error:', err)
+    res.status(500).json({ message: 'Server error fetching route' })
+  }
+}
 
 const createRoute = async (req, res) => {
   try {
-    const { routeNumber, name, color, city, stops } = req.body;
-    if (!routeNumber || !name || !color || !city) {
-      return res.status(400).json({ message: 'Route number, name, color, and city are required' });
+    const { routeNumber, routeName, color, citySlug, stops } = req.body
+
+    if (!routeNumber || !routeName || !citySlug) {
+      return res.status(400).json({ 
+        message: 'routeNumber, routeName, and citySlug are required' 
+      })
     }
 
-    const newRoute = new Route({
+    const city = await City.findOne({ slug: citySlug })
+    if (!city) {
+      return res.status(404).json({ message: 'City not found' })
+    }
+
+    const validation = await validateStopsForCity(stops, city._id)
+    if (!validation.valid) {
+      return res.status(400).json({ message: validation.message })
+    }
+
+    const route = await Route.create({
       routeNumber,
-      name,
-      color,
-      city,
+      routeName,
+      color,                    
+      city: city._id,
       stops: stops || []
-    });
+    })
 
-    await newRoute.save();
+    const populated = await Route.findById(route._id)
+      .populate('city', 'name slug')
+      .populate('stops', 'name location')
 
-    // Sync Stop objects with this new Route reference
-    if (stops && stops.length > 0) {
-      await Stop.updateMany(
-        { _id: { $in: stops } },
-        { $addToSet: { routes: newRoute._id } }
-      );
-    }
+    res.status(201).json({ route: populated })
 
-    res.status(201).json(newRoute);
   } catch (err) {
-    res.status(500).json({ message: 'Server error creating route' });
+    if (err.name === 'ValidationError') {
+      return res.status(400).json({ message: err.message })
+    }
+    console.error('createRoute error:', err)
+    res.status(500).json({ message: 'Server error creating route' })
   }
-};
+}
 
 const updateRoute = async (req, res) => {
   try {
-    const { id } = req.params;
-    const { routeNumber, name, color, stops } = req.body;
+    const { routeNumber, routeName, color, stops, isActive } = req.body
 
-    const route = await Route.findById(id);
-    if (!route) return res.status(404).json({ message: 'Route not found' });
+    const route = await Route.findById(req.params.id)
+    if (!route) {
+      return res.status(404).json({ message: 'Route not found' })
+    }
 
-    const oldStops = route.stops || [];
-
-    if (routeNumber) route.routeNumber = routeNumber;
-    if (name) route.name = name;
-    if (color) route.color = color;
-    if (stops !== undefined) route.stops = stops;
-
-    await route.save();
-
-    // Update Stops references
     if (stops !== undefined) {
-      // 1. Remove route reference from stops that are no longer serviced
-      const removedStops = oldStops.filter(sid => !stops.includes(sid.toString()));
-      if (removedStops.length > 0) {
-        await Stop.updateMany(
-          { _id: { $in: removedStops } },
-          { $pull: { routes: route._id } }
-        );
-      }
-
-      // 2. Add route reference to newly added stops
-      const addedStops = stops.filter(sid => !oldStops.map(o => o.toString()).includes(sid.toString()));
-      if (addedStops.length > 0) {
-        await Stop.updateMany(
-          { _id: { $in: addedStops } },
-          { $addToSet: { routes: route._id } }
-        );
+      const validation = await validateStopsForCity(stops, route.city)
+      if (!validation.valid) {
+        return res.status(400).json({ message: validation.message })
       }
     }
 
-    res.json(route);
+    if (routeNumber !== undefined) route.routeNumber = routeNumber
+    if (routeName !== undefined) route.routeName = routeName
+    if (color !== undefined) route.color = color
+    if (stops !== undefined) route.stops = stops
+    if (isActive !== undefined) route.isActive = isActive
+
+    await route.save()
+
+    const populated = await Route.findById(route._id)
+      .populate('city', 'name slug')
+      .populate('stops', 'name location')
+
+    res.json({ route: populated })
+
   } catch (err) {
-    res.status(500).json({ message: 'Server error updating route' });
+    if (err.name === 'ValidationError') {
+      return res.status(400).json({ message: err.message })
+    }
+    console.error('updateRoute error:', err)
+    res.status(500).json({ message: 'Server error updating route' })
   }
-};
+}
 
 const deleteRoute = async (req, res) => {
   try {
-    const { id } = req.params;
-    const route = await Route.findByIdAndDelete(id);
-    if (!route) return res.status(404).json({ message: 'Route not found' });
+    const route = await Route.findByIdAndDelete(req.params.id)
 
-    // Remove route reference from all stops
-    await Stop.updateMany(
-      { routes: id },
-      { $pull: { routes: id } }
-    );
+    if (!route) {
+      return res.status(404).json({ message: 'Route not found' })
+    }
 
-    res.json({ message: 'Route deleted successfully' });
+    res.json({ message: 'Route deleted', route })
+
   } catch (err) {
-    res.status(500).json({ message: 'Server error deleting route' });
+    console.error('deleteRoute error:', err)
+    res.status(500).json({ message: 'Server error deleting route' })
   }
-};
+}
 
 module.exports = {
   getRoutes,
+  getRouteById,
   createRoute,
   updateRoute,
   deleteRoute
-};
+}
