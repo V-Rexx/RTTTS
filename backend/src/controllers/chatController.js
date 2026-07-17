@@ -1,75 +1,196 @@
-const Stop = require('../models/Stop');
-const Route = require('../models/Route');
-const Bus = require('../models/Bus');
+const { GoogleGenerativeAI } = require('@google/generative-ai')
+const City = require('../models/City')
+const Route = require('../models/Route')
+const Stop = require('../models/Stop')
+const busManager = require('../utils/busManager')
 
-const handleChat = async (req, res) => {
-  try {
-    const { message, citySlug } = req.body;
-    if (!message || !citySlug) {
-      return res.status(400).json({ message: 'User message and city slug are required' });
-    }
+// Initialize Gemini once at module load
+const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY)
+const model = genAI.getGenerativeModel({ model: 'gemini-2.0-flash' })
 
-    const stops = await Stop.find({ city: citySlug });
-    const routes = await Route.find({ city: citySlug });
-    const buses = await Bus.find({ city: citySlug, status: 'active' });
+// ─── Helper: build live context for a city ──────────────
+const buildCityContext = async (citySlug) => {
+  const city = await City.findOne({ slug: citySlug, isActive: true })
+  if (!city) return null
 
-    let reply = "";
-    let actionToken = "";
-    const msgLower = message.toLowerCase();
+  const [routes, stops] = await Promise.all([
+    Route.find({ city: city._id, isActive: true })
+      .populate('stops', 'name location')
+      .select('routeNumber routeName stops color'),
+    Stop.find({ city: city._id })
+      .select('name location')
+  ])
 
-    if (citySlug === 'jorhat') {
-      if (msgLower.includes('airport') || msgLower.includes('flight') || msgLower.includes('rowriah')) {
-        reply = `To get to **Rowriah Airport** in Jorhat, take **Route 1A** starting from ISBT Jorhat. It halts at Baruah Chariali and Jorhat Court before reaching Rowriah Airport. There are currently active buses traversing this path.`;
-        actionToken = "\nACTION: zoom_to:Baruah Chariali\nACTION: highlight_route:1A";
-      } else if (msgLower.includes('nearest') || msgLower.includes('close')) {
-        reply = `Let me find the nearest stop to you. I have opened the Nearest Bus drawer to calculate walk times and list incoming fleets.`;
-        actionToken = "\nACTION: find_nearest_bus";
-      } else if (msgLower.includes('junction') || msgLower.includes('station') || msgLower.includes('cinnamara')) {
-        reply = `For **Jorhat Junction** or **Cinnamara Tea Estate**, you should board **Route 2B** which connects Jorhat Junction, Gar-Ali, and Cinnamara. I am highlighting Route 2B on the map.`;
-        actionToken = "\nACTION: show_stop:Jorhat Junction\nACTION: highlight_route:2B";
-      } else if (msgLower.includes('stop') || msgLower.includes('station')) {
-        const matchStop = stops.find(s => msgLower.includes(s.name.toLowerCase()));
-        if (matchStop) {
-          const matchedRouteDetails = routes.filter(r => stop.routes?.includes(r._id));
-          reply = `The stop **${matchStop.name}** is operational in Jorhat. Services: ${matchedRouteDetails.map(r => r.routeNumber).join(', ') || 'No active routes'}.`;
-          actionToken = `\nACTION: show_stop:${matchStop.name}`;
-        } else {
-          reply = `We service multiple stops in Jorhat: ISBT Jorhat, Baruah Chariali, Jorhat Court, Rowriah Airport, Jorhat Junction, Gar-Ali, and Cinnamara Tea Estate.`;
-        }
-      } else {
-        reply = `Welcome to Jorhat AI Commute! I have live access to the database. Currently there are ${routes.length} active routes, ${stops.length} registered stops, and ${buses.length} online buses.`;
-      }
-    } 
-    else {
-      if (msgLower.includes('airport') || msgLower.includes('flight')) {
-        reply = `To get to the Airport, catch **Route 500C** from Silk Board. It makes stops at HSR Layout, Bellandur, and Marathahalli. There are currently active buses running.`;
-        actionToken = "\nACTION: zoom_to:Bellandur\nACTION: highlight_route:500C";
-      } else if (msgLower.includes('nearest') || msgLower.includes('close')) {
-        reply = `Opening the Nearest Bus finder to calculate closest stops and walk times for you.`;
-        actionToken = "\nACTION: find_nearest_bus";
-      } else if (msgLower.includes('majestic') || msgLower.includes('train')) {
-        reply = `For Majestic Station, take **Route G-3** which runs directly through Indiranagar, Domlur, Richmond Circle, Corporation, and Majestic. Alternatively, **Route 365** also connects to Majestic.`;
-        actionToken = "\nACTION: show_stop:Majestic\nACTION: highlight_route:G-3";
-      } else if (msgLower.includes('stop') || msgLower.includes('station')) {
-        const matchStop = stops.find(s => msgLower.includes(s.name.toLowerCase()));
-        if (matchStop) {
-          reply = `The stop **${matchStop.name}** is active. Services: ${matchStop.routes ? matchStop.routes.length : 0} routes.`;
-          actionToken = `\nACTION: show_stop:${matchStop.name}`;
-        } else {
-          reply = `We have active stops including Silk Board, Majestic, Bellandur, and Domlur.`;
-        }
-      } else {
-        reply = `Welcome to Bangalore AI Command! I see ${routes.length} active routes, ${stops.length} stops, and ${buses.length} active buses.`;
-      }
-    }
+  const liveBuses = busManager.getBusesByCity(citySlug)
 
-    res.json({ responseText: reply + actionToken });
-  } catch (err) {
-    console.error('Chat controller error:', err.message);
-    res.status(500).json({ message: 'Server error processing chat' });
+  return {
+    city: {
+      name: city.name,
+      slug: city.slug,
+      center: city.center
+    },
+    routes: routes.map(r => ({
+      routeNumber: r.routeNumber,
+      routeName: r.routeName,
+      stops: r.stops.map(s => s.name)
+    })),
+    stops: stops.map(s => ({
+      name: s.name,
+      lng: s.location.coordinates[0],
+      lat: s.location.coordinates[1]
+    })),
+    liveBuses: liveBuses.map(b => ({
+      busNumber: b.busNumber,
+      route: b.route,
+      lat: b.lat,
+      lng: b.lng,
+      status: b.status,
+      speed: b.speed
+    }))
   }
-};
+}
+
+// ─── GET /api/chat/context?citySlug=bangalore ───────────
+// Public — frontend can call this to see raw context
+const getCityContext = async (req, res) => {
+  try {
+    const { citySlug } = req.query
+    if (!citySlug) {
+      return res.status(400).json({ message: 'citySlug is required' })
+    }
+
+    const context = await buildCityContext(citySlug.toLowerCase())
+    if (!context) {
+      return res.status(404).json({ message: 'City not found' })
+    }
+
+    res.json({ context })
+  } catch (err) {
+    console.error('getCityContext error:', err)
+    res.status(500).json({ message: 'Server error building context' })
+  }
+}
+
+// ─── POST /api/chat ─────────────────────────────────────
+// Public — main chatbot endpoint
+const chat = async (req, res) => {
+  try {
+    const { message, citySlug, history } = req.body
+
+    if (!message || !citySlug) {
+      return res.status(400).json({ 
+        message: 'message and citySlug are required' 
+      })
+    }
+
+    // Build live context for RAG
+    const context = await buildCityContext(citySlug.toLowerCase())
+    if (!context) {
+      return res.status(404).json({ message: 'City not found' })
+    }
+
+    // Build the system prompt with live data injected
+    const systemPrompt = `You are CityTrack Assistant, a helpful transit companion for ${context.city.name}.
+
+You have access to LIVE bus tracking data. Use it to answer questions accurately.
+
+CURRENT DATA:
+
+Routes in ${context.city.name}:
+${context.routes.map(r => 
+  `- ${r.routeNumber} (${r.routeName}): ${r.stops.join(' → ')}`
+).join('\n') || '(No routes configured yet)'}
+
+Currently live buses (${context.liveBuses.length}):
+${context.liveBuses.length > 0 
+  ? context.liveBuses.map(b => 
+      `- Bus ${b.busNumber}, status: ${b.status}, speed: ${b.speed || 0} km/h`
+    ).join('\n')
+  : '(No buses currently online)'}
+
+INSTRUCTIONS:
+1. Answer questions using ONLY the live data above. Don't invent routes or buses.
+2. Be concise — 2-3 sentences typical, max 5.
+3. Be friendly but not chatty. Passengers are usually in a hurry.
+4. If asked about a specific route, mention the route number and endpoint stops.
+5. If asked about "nearest bus" or specific stops, describe what you see in the data.
+6. If the user asks something you can't answer from the data, say so plainly.
+
+ACTION TOKENS (optional):
+You can trigger UI actions on the map by ending your response with a special line:
+- ACTION: highlight_route:<routeNumber> — pulses that route on the map
+- ACTION: show_stop:<stopName> — opens the popup for that stop
+- ACTION: zoom_to:<stopName> — pans map to that stop
+
+Only include ONE action token per response, and only when it clearly helps.
+
+Example response:
+"Route 42A runs from Central Station to Airport, passing MG Road and Indiranagar. It's a 45-minute ride typically.
+ACTION: highlight_route:42A"
+
+Now respond to the user's question below.`
+
+    // Format history for Gemini
+    const chatHistory = (history || []).map(h => ({
+      role: h.role === 'assistant' ? 'model' : 'user',
+      parts: [{ text: h.content }]
+    }))
+
+    const chatSession = model.startChat({
+      history: [
+        { role: 'user', parts: [{ text: systemPrompt }] },
+        { role: 'model', parts: [{ text: 'Understood. I\'ll help passengers using live CityTrack data.' }] },
+        ...chatHistory
+      ],
+      generationConfig: {
+        temperature: 0.7,
+        maxOutputTokens: 400
+      }
+    })
+
+    const result = await chatSession.sendMessage(message)
+    const responseText = result.response.text()
+
+    // Parse out action token if present
+    const actionMatch = responseText.match(/ACTION:\s*(\w+):(.+?)(?:\n|$)/i)
+    let cleanText = responseText
+    let action = null
+
+    if (actionMatch) {
+      action = {
+        type: actionMatch[1].trim(),
+        target: actionMatch[2].trim()
+      }
+      // Remove the action line from the visible text
+      cleanText = responseText.replace(/ACTION:.+$/im, '').trim()
+    }
+
+    res.json({
+      response: cleanText,
+      action,
+      contextUsed: {
+        routes: context.routes.length,
+        stops: context.stops.length,
+        liveBuses: context.liveBuses.length
+      }
+    })
+
+  } catch (err) {
+    console.error('chat error:', err.message)
+
+    // Handle Gemini-specific errors
+    if (err.message?.includes('API key')) {
+      return res.status(500).json({ message: 'AI service misconfigured' })
+    }
+    if (err.message?.includes('quota') || err.message?.includes('429')) {
+      return res.status(429).json({ message: 'AI service rate limit reached, try again in a minute' })
+    }
+
+    res.status(500).json({ message: 'AI service error' })
+  }
+}
 
 module.exports = {
-  handleChat
-};
+  chat,
+  getCityContext
+}
