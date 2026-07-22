@@ -143,10 +143,21 @@ const register = async (req, res) => {
   }
 }
 
+const getDrivers = async (req, res) => {
+  try {
+    const drivers = await User.find({ role: 'driver' }).select('-passwordHash -refreshToken')
+    res.json({ drivers: drivers.map((d) => d.toPublic()) })
+  } catch (err) {
+    console.error('getDrivers error:', err)
+    res.status(500).json({ message: 'Server error fetching drivers' })
+  }
+}
+
 module.exports = {
   login,
   refresh,
   logout,
   me,
-  register
+  register,
+  getDrivers
 }

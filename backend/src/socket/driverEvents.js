@@ -29,6 +29,11 @@ const registerDriverEvents = (io, socket) => {
       bus.status = 'active'
       bus.isOnline = true
       bus.lastUpdated = new Date()
+      // Clear any position from a previous shift — it's stale until this
+      // shift's first real GPS fix POSTs to /api/buses/location. Without
+      // this, a bus with prior location history would briefly show its old
+      // spot to passengers instead of correctly staying hidden until located.
+      bus.currentLocation = { lat: null, lng: null }
       await bus.save()
 
       io.to(bus.city.slug).emit('bus-online', {

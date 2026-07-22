@@ -30,10 +30,6 @@ const io = new Server(server, {
 
 initSocketHandler(io)
 
-const setupSocket = require('./socket/socketHandler');
-setupSocket(io);
-
-
 app.use(cors({
   origin: process.env.CLIENT_URL || '*',
   credentials: true

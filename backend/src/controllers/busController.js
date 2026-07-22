@@ -220,7 +220,7 @@ const deleteBus = async (req, res) => {
 
 const updateLocation = async (req, res) => {
   try {
-    const { lat, lng } = req.body
+    const { lat, lng, speed } = req.body
 
     if (lat === undefined || lng === undefined) {
       return res.status(400).json({ message: 'lat and lng are required' })
@@ -240,6 +240,25 @@ const updateLocation = async (req, res) => {
 
     await bus.save()
 
+    // Drivers report location over REST (not the socket location-update
+    // event), so this is the only place that can keep the in-memory
+    // busManager cache in sync — getNearestCatchableBuses and the stale-bus
+    // sweep in socketHandler.js both read from it, not from MongoDB.
+    if (bus.city?.slug) {
+      busManager.setBus(bus._id, {
+        _id: bus._id,
+        busNumber: bus.busNumber,
+        route: bus.route,
+        city: bus.city._id,
+        citySlug: bus.city.slug,
+        lat,
+        lng,
+        speed: speed || 0,
+        status: bus.status,
+        isOnline: true
+      })
+    }
+
     try {
       const { io } = require('../index')
       if (io && bus.city?.slug) {
@@ -249,6 +268,7 @@ const updateLocation = async (req, res) => {
           route: bus.route,
           lat,
           lng,
+          speed: speed || 0,
           status: bus.status,
           isOnline: true,
           lastUpdated: bus.lastUpdated
