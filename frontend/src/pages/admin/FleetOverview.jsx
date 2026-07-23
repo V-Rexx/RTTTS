@@ -6,6 +6,7 @@ import { upsertById } from '../../utils/upsertById';
 export default function FleetOverview() {
   const [buses, setBuses] = useState({});
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState(null);
   const routeByIdRef = useRef({});
 
   useEffect(() => {
@@ -13,6 +14,7 @@ export default function FleetOverview() {
 
     async function load() {
       setLoading(true);
+      setLoadError(null);
       try {
         const [citiesRes, busesRes] = await Promise.all([
           api.get('/api/cities'),
@@ -45,8 +47,11 @@ export default function FleetOverview() {
         citiesRes.data.forEach((city) => {
           socket.emit('subscribe-city', { citySlug: city.slug });
         });
-      } catch {
-        if (!cancelled) setBuses({});
+      } catch (err) {
+        if (!cancelled) {
+          setBuses({});
+          setLoadError(err.response?.data?.message || 'Could not reach the server.');
+        }
       } finally {
         if (!cancelled) setLoading(false);
       }
@@ -134,7 +139,7 @@ export default function FleetOverview() {
     <div>
       <h1 className="text-xl font-semibold text-slate-900 mb-6">Fleet Overview</h1>
 
-      <div className="bg-white rounded-2xl border border-gray-200 overflow-hidden">
+      <div className="bg-white rounded-2xl border border-gray-200 overflow-x-auto">
         <table className="w-full text-sm">
           <thead className="bg-slate-50 text-slate-500 text-xs uppercase tracking-wide">
             <tr>
@@ -155,7 +160,14 @@ export default function FleetOverview() {
                 </td>
               </tr>
             )}
-            {!loading && rows.length === 0 && (
+            {!loading && loadError && (
+              <tr>
+                <td colSpan={7} className="px-5 py-6 text-center text-red-500">
+                  Failed to load fleet. {loadError}
+                </td>
+              </tr>
+            )}
+            {!loading && !loadError && rows.length === 0 && (
               <tr>
                 <td colSpan={7} className="px-5 py-6 text-center text-slate-400">
                   No buses registered yet.

@@ -283,16 +283,16 @@ export default function PassengerMap() {
 
   return (
     <div className="relative w-screen h-screen">
-      <header className="absolute top-4 left-1/2 -translate-x-1/2 z-[1000] bg-white rounded-2xl shadow-lg border border-gray-200 px-5 py-3 flex items-center gap-3">
+      <header className="absolute top-4 left-1/2 -translate-x-1/2 z-[1000] max-w-[65vw] sm:max-w-none bg-white rounded-2xl shadow-lg border border-gray-200 px-5 py-3 flex items-center gap-3">
         <button
           onClick={() => navigate('/')}
-          className="text-slate-400 hover:text-slate-700 transition"
+          className="text-slate-400 hover:text-slate-700 transition flex-shrink-0"
           aria-label="Back"
         >
           &larr;
         </button>
-        <div>
-          <div className="text-sm font-semibold text-slate-900">{city.name}</div>
+        <div className="min-w-0">
+          <div className="text-sm font-semibold text-slate-900 truncate">{city.name}</div>
           <div className="text-[11px] text-emerald-600 font-medium uppercase tracking-wide">
             Live tracking
           </div>
@@ -302,13 +302,13 @@ export default function PassengerMap() {
       <button
         onClick={handleFindMyBus}
         disabled={catchableLoading}
-        className="absolute top-4 right-4 z-[1000] bg-slate-900 text-white text-xs font-semibold px-4 py-3 rounded-2xl shadow-lg hover:bg-slate-800 transition disabled:opacity-60"
+        className="absolute top-20 right-4 sm:top-4 z-[1000] bg-slate-900 text-white text-xs font-semibold px-4 py-3 rounded-2xl shadow-lg hover:bg-slate-800 transition disabled:opacity-60"
       >
         {catchableLoading ? 'Locating...' : '📍 Find my bus'}
       </button>
 
       {catchableResults !== null && (
-        <div className="absolute top-20 right-4 z-[1000] w-72 max-h-[60vh] overflow-y-auto bg-white rounded-2xl shadow-xl border border-gray-200">
+        <div className="absolute top-36 right-4 sm:top-20 z-[1000] w-[85vw] max-w-72 max-h-[60vh] overflow-y-auto bg-white rounded-2xl shadow-xl border border-gray-200">
           <div className="px-4 py-3 border-b border-gray-100 flex items-center justify-between">
             <span className="text-sm font-semibold text-slate-900">Catchable buses</span>
             <button
@@ -394,13 +394,13 @@ export default function PassengerMap() {
       </MapContainer>
 
       {selectedBus && (
-        <div className="absolute bottom-6 left-1/2 -translate-x-1/2 z-[1000] bg-white rounded-2xl shadow-lg border border-gray-200 px-4 py-2.5 flex items-center gap-3">
-          <span className="text-sm font-medium text-slate-800">
+        <div className="absolute bottom-6 left-1/2 -translate-x-1/2 z-[1000] max-w-[90vw] bg-white rounded-2xl shadow-lg border border-gray-200 px-4 py-2.5 flex items-center gap-3">
+          <span className="text-sm font-medium text-slate-800 truncate">
             Showing Route {selectedBus.routeNumber || '—'} · Bus {selectedBus.busNumber}
           </span>
           <button
             onClick={() => setSelectedBusId(null)}
-            className="text-slate-400 hover:text-slate-700 text-sm font-medium"
+            className="text-slate-400 hover:text-slate-700 text-sm font-medium flex-shrink-0"
           >
             Hide
           </button>

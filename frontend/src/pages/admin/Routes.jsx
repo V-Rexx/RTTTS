@@ -2,14 +2,17 @@ import { useEffect, useState } from 'react';
 import api from '../../api/axios';
 import Modal from '../../components/admin/Modal';
 import { useAdminCity } from '../../context/AdminCityContext';
+import { useToast } from '../../context/ToastContext';
 
 const EMPTY_FORM = { routeNumber: '', routeName: '', color: '#4F46E5' };
 
 export default function Routes() {
   const { cities, citySlug, setCitySlug } = useAdminCity();
+  const { showToast } = useToast();
   const [routes, setRoutes] = useState([]);
   const [cityStops, setCityStops] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState(null);
 
   const [modalOpen, setModalOpen] = useState(false);
   const [editingRoute, setEditingRoute] = useState(null);
@@ -21,6 +24,7 @@ export default function Routes() {
   const load = () => {
     if (!citySlug) return;
     setLoading(true);
+    setLoadError(null);
     Promise.all([
       api.get(`/api/routes?city=${citySlug}`),
       api.get(`/api/stops?city=${citySlug}`),
@@ -29,9 +33,10 @@ export default function Routes() {
         setRoutes(routesRes.data.routes);
         setCityStops(stopsRes.data.stops);
       })
-      .catch(() => {
+      .catch((err) => {
         setRoutes([]);
         setCityStops([]);
+        setLoadError(err.response?.data?.message || 'Could not reach the server.');
       })
       .finally(() => setLoading(false));
   };
@@ -92,6 +97,7 @@ export default function Routes() {
       }
       setModalOpen(false);
       load();
+      showToast(editingRoute ? 'Route updated.' : 'Route created.', 'success');
     } catch (err) {
       setError(err.response?.data?.message || 'Failed to save route.');
     } finally {
@@ -104,8 +110,9 @@ export default function Routes() {
     try {
       await api.delete(`/api/routes/${route._id}`);
       load();
+      showToast(`Route ${route.routeNumber} deleted.`, 'success');
     } catch (err) {
-      alert(err.response?.data?.message || 'Delete failed.');
+      showToast(err.response?.data?.message || 'Delete failed.');
     }
   };
 
@@ -135,7 +142,7 @@ export default function Routes() {
         </div>
       </div>
 
-      <div className="bg-white rounded-2xl border border-gray-200 overflow-hidden">
+      <div className="bg-white rounded-2xl border border-gray-200 overflow-x-auto">
         <table className="w-full text-sm">
           <thead className="bg-slate-50 text-slate-500 text-xs uppercase tracking-wide">
             <tr>
@@ -154,7 +161,14 @@ export default function Routes() {
                 </td>
               </tr>
             )}
-            {!loading && routes.length === 0 && (
+            {!loading && loadError && (
+              <tr>
+                <td colSpan={5} className="px-5 py-6 text-center text-red-500">
+                  Failed to load routes. {loadError}
+                </td>
+              </tr>
+            )}
+            {!loading && !loadError && routes.length === 0 && (
               <tr>
                 <td colSpan={5} className="px-5 py-6 text-center text-slate-400">
                   No routes in this city yet.

@@ -1,5 +1,6 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider } from './context/AuthContext';
+import { ToastProvider } from './context/ToastContext';
 import ProtectedRoute from './components/ProtectedRoute';
 
 import Landing from './pages/Landing';
@@ -20,38 +21,40 @@ export default function App() {
   return (
     <BrowserRouter>
       <AuthProvider>
-        <Routes>
-          <Route path="/" element={<Landing />} />
-          <Route path="/city/:slug" element={<PassengerMap />} />
-          <Route path="/discover" element={<Discover />} />
-          <Route path="/login" element={<Login />} />
+        <ToastProvider>
+          <Routes>
+            <Route path="/" element={<Landing />} />
+            <Route path="/city/:slug" element={<PassengerMap />} />
+            <Route path="/discover" element={<Discover />} />
+            <Route path="/login" element={<Login />} />
 
-          <Route
-            path="/driver"
-            element={
-              <ProtectedRoute requiredRole="driver">
-                <DriverPage />
-              </ProtectedRoute>
-            }
-          />
+            <Route
+              path="/driver"
+              element={
+                <ProtectedRoute requiredRole="driver">
+                  <DriverPage />
+                </ProtectedRoute>
+              }
+            />
 
-          <Route
-            path="/admin"
-            element={
-              <ProtectedRoute requiredRole="admin">
-                <AdminLayout />
-              </ProtectedRoute>
-            }
-          >
-            <Route index element={<Navigate to="fleet" replace />} />
-            <Route path="fleet" element={<AdminFleetOverview />} />
-            <Route path="cities" element={<AdminCities />} />
-            <Route path="routes" element={<AdminRoutes />} />
-            <Route path="stops" element={<AdminStops />} />
-            <Route path="buses" element={<AdminBuses />} />
-            <Route path="drivers" element={<AdminDrivers />} />
-          </Route>
-        </Routes>
+            <Route
+              path="/admin"
+              element={
+                <ProtectedRoute requiredRole="admin">
+                  <AdminLayout />
+                </ProtectedRoute>
+              }
+            >
+              <Route index element={<Navigate to="fleet" replace />} />
+              <Route path="fleet" element={<AdminFleetOverview />} />
+              <Route path="cities" element={<AdminCities />} />
+              <Route path="routes" element={<AdminRoutes />} />
+              <Route path="stops" element={<AdminStops />} />
+              <Route path="buses" element={<AdminBuses />} />
+              <Route path="drivers" element={<AdminDrivers />} />
+            </Route>
+          </Routes>
+        </ToastProvider>
       </AuthProvider>
     </BrowserRouter>
   );

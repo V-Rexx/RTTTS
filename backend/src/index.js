@@ -20,9 +20,27 @@ const app = express()
 
 const server = http.createServer(app)
 
+// CLIENT_URLS accepts a comma-separated list so both the local dev origin
+// and a deployed frontend (or several Vercel preview URLs) can be allowed
+// at once. Falls back to CLIENT_URL (single value) for backward compat.
+// If neither is set, all origins are allowed — fine for local dev, but set
+// one of these in production since credentialed CORS can't use '*'.
+const allowedOrigins = (process.env.CLIENT_URLS || process.env.CLIENT_URL || '')
+  .split(',')
+  .map((s) => s.trim())
+  .filter(Boolean)
+
+const corsOriginCheck = (origin, callback) => {
+  if (!origin) return callback(null, true) // non-browser requests (curl, health checks)
+  if (allowedOrigins.length === 0 || allowedOrigins.includes(origin)) {
+    return callback(null, true)
+  }
+  callback(new Error(`Origin ${origin} not allowed by CORS`))
+}
+
 const io = new Server(server, {
   cors: {
-    origin: process.env.CLIENT_URL || '*',
+    origin: corsOriginCheck,
     methods: ['GET', 'POST'],
     credentials: true
   }
@@ -31,7 +49,7 @@ const io = new Server(server, {
 initSocketHandler(io)
 
 app.use(cors({
-  origin: process.env.CLIENT_URL || '*',
+  origin: corsOriginCheck,
   credentials: true
 }))
 app.use(express.json())

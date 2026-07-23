@@ -2,11 +2,13 @@ import { useState } from 'react';
 import api from '../../api/axios';
 import Modal from '../../components/admin/Modal';
 import { useAdminCity } from '../../context/AdminCityContext';
+import { useToast } from '../../context/ToastContext';
 
 const EMPTY_FORM = { name: '', lat: '', lng: '', zoom: '12' };
 
 export default function Cities() {
-  const { cities, loading, refreshCities } = useAdminCity();
+  const { cities, loading, loadError, refreshCities } = useAdminCity();
+  const { showToast } = useToast();
   const [modalOpen, setModalOpen] = useState(false);
   const [editingCity, setEditingCity] = useState(null);
   const [form, setForm] = useState(EMPTY_FORM);
@@ -53,7 +55,7 @@ export default function Cities() {
         await api.post('/api/cities', payload);
       }
       setModalOpen(false);
-      refreshCities();
+      refreshCities().catch(() => {});
     } catch (err) {
       setError(err.response?.data?.message || 'Failed to save city.');
     } finally {
@@ -65,9 +67,10 @@ export default function Cities() {
     if (!window.confirm(`Delete ${city.name}? This does not remove its routes, stops, or buses.`)) return;
     try {
       await api.delete(`/api/cities/${city._id}`);
-      refreshCities();
+      refreshCities().catch(() => {});
+      showToast(`${city.name} deleted.`, 'success');
     } catch (err) {
-      alert(err.response?.data?.message || 'Delete failed.');
+      showToast(err.response?.data?.message || 'Delete failed.');
     }
   };
 
@@ -83,7 +86,7 @@ export default function Cities() {
         </button>
       </div>
 
-      <div className="bg-white rounded-2xl border border-gray-200 overflow-hidden">
+      <div className="bg-white rounded-2xl border border-gray-200 overflow-x-auto">
         <table className="w-full text-sm">
           <thead className="bg-slate-50 text-slate-500 text-xs uppercase tracking-wide">
             <tr>
@@ -102,7 +105,14 @@ export default function Cities() {
                 </td>
               </tr>
             )}
-            {!loading && cities.length === 0 && (
+            {!loading && loadError && (
+              <tr>
+                <td colSpan={5} className="px-5 py-6 text-center text-red-500">
+                  Failed to load cities. {loadError}
+                </td>
+              </tr>
+            )}
+            {!loading && !loadError && cities.length === 0 && (
               <tr>
                 <td colSpan={5} className="px-5 py-6 text-center text-slate-400">
                   No cities yet.

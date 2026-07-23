@@ -9,21 +9,31 @@ export function AdminCityProvider({ children }) {
   const [cities, setCities] = useState([]);
   const [citySlug, setCitySlug] = useState('');
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState(null);
 
   const refreshCities = () => {
-    return api.get('/api/cities').then((res) => {
-      setCities(res.data);
-      setCitySlug((prev) => (prev && res.data.some((c) => c.slug === prev) ? prev : res.data[0]?.slug || ''));
-      return res.data;
-    });
+    return api
+      .get('/api/cities')
+      .then((res) => {
+        setLoadError(null);
+        setCities(res.data);
+        setCitySlug((prev) => (prev && res.data.some((c) => c.slug === prev) ? prev : res.data[0]?.slug || ''));
+        return res.data;
+      })
+      .catch((err) => {
+        setLoadError(err.response?.data?.message || 'Could not reach the server.');
+        throw err;
+      });
   };
 
   useEffect(() => {
-    refreshCities().finally(() => setLoading(false));
+    refreshCities()
+      .catch(() => {})
+      .finally(() => setLoading(false));
   }, []);
 
   return (
-    <AdminCityContext.Provider value={{ cities, citySlug, setCitySlug, loading, refreshCities }}>
+    <AdminCityContext.Provider value={{ cities, citySlug, setCitySlug, loading, loadError, refreshCities }}>
       {children}
     </AdminCityContext.Provider>
   );

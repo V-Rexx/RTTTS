@@ -15,10 +15,17 @@ const generateTokens = (userId) => {
   return { accessToken, refreshToken }
 }
 
+// In production the frontend (Vercel) and backend (Render) are different
+// domains, so the refresh cookie must be sameSite=none — which browsers
+// only honor when secure=true (HTTPS). Locally, both run on http://localhost
+// so sameSite=strict + secure=false works and keeps the cookie usable over
+// plain HTTP during development.
+const isProduction = process.env.NODE_ENV === 'production'
+
 const COOKIE_OPTIONS = {
   httpOnly: true,
-  secure: process.env.NODE_ENV === 'production',
-  sameSite: 'strict',
+  secure: isProduction,
+  sameSite: isProduction ? 'none' : 'strict',
   maxAge: 7 * 24 * 60 * 60 * 1000   // 7 days
 }
 

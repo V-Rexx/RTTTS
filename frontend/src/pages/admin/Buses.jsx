@@ -2,15 +2,18 @@ import { useEffect, useState } from 'react';
 import api from '../../api/axios';
 import Modal from '../../components/admin/Modal';
 import { useAdminCity } from '../../context/AdminCityContext';
+import { useToast } from '../../context/ToastContext';
 
 const EMPTY_FORM = { busNumber: '', plateNumber: '', driverId: '', routeId: '' };
 
 export default function Buses() {
   const { cities, citySlug, setCitySlug } = useAdminCity();
+  const { showToast } = useToast();
   const [buses, setBuses] = useState([]);
   const [drivers, setDrivers] = useState([]);
   const [cityRoutes, setCityRoutes] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState(null);
 
   const [modalOpen, setModalOpen] = useState(false);
   const [editingBus, setEditingBus] = useState(null);
@@ -19,12 +22,16 @@ export default function Buses() {
   const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => {
-    api.get('/api/auth/drivers').then((res) => setDrivers(res.data.drivers));
+    api
+      .get('/api/auth/drivers')
+      .then((res) => setDrivers(res.data.drivers))
+      .catch(() => showToast('Failed to load drivers list.'));
   }, []);
 
   const load = () => {
     if (!citySlug) return;
     setLoading(true);
+    setLoadError(null);
     Promise.all([
       api.get(`/api/buses?city=${citySlug}`),
       api.get(`/api/routes?city=${citySlug}`),
@@ -33,9 +40,10 @@ export default function Buses() {
         setBuses(busesRes.data.buses);
         setCityRoutes(routesRes.data.routes);
       })
-      .catch(() => {
+      .catch((err) => {
         setBuses([]);
         setCityRoutes([]);
+        setLoadError(err.response?.data?.message || 'Could not reach the server.');
       })
       .finally(() => setLoading(false));
   };
@@ -81,6 +89,7 @@ export default function Buses() {
       }
       setModalOpen(false);
       load();
+      showToast(editingBus ? 'Bus updated.' : 'Bus created.', 'success');
     } catch (err) {
       setError(err.response?.data?.message || 'Failed to save bus.');
     } finally {
@@ -93,8 +102,9 @@ export default function Buses() {
     try {
       await api.delete(`/api/buses/${bus._id}`);
       load();
+      showToast(`Bus ${bus.busNumber} deleted.`, 'success');
     } catch (err) {
-      alert(err.response?.data?.message || 'Delete failed.');
+      showToast(err.response?.data?.message || 'Delete failed.');
     }
   };
 
@@ -125,7 +135,7 @@ export default function Buses() {
         </div>
       </div>
 
-      <div className="bg-white rounded-2xl border border-gray-200 overflow-hidden">
+      <div className="bg-white rounded-2xl border border-gray-200 overflow-x-auto">
         <table className="w-full text-sm">
           <thead className="bg-slate-50 text-slate-500 text-xs uppercase tracking-wide">
             <tr>
@@ -145,7 +155,14 @@ export default function Buses() {
                 </td>
               </tr>
             )}
-            {!loading && buses.length === 0 && (
+            {!loading && loadError && (
+              <tr>
+                <td colSpan={6} className="px-5 py-6 text-center text-red-500">
+                  Failed to load buses. {loadError}
+                </td>
+              </tr>
+            )}
+            {!loading && !loadError && buses.length === 0 && (
               <tr>
                 <td colSpan={6} className="px-5 py-6 text-center text-slate-400">
                   No buses in this city yet.

@@ -1,12 +1,15 @@
 import { useEffect, useState } from 'react';
 import api from '../../api/axios';
 import Modal from '../../components/admin/Modal';
+import { useToast } from '../../context/ToastContext';
 
 const EMPTY_FORM = { name: '', email: '', password: '' };
 
 export default function Drivers() {
+  const { showToast } = useToast();
   const [drivers, setDrivers] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState(null);
   const [modalOpen, setModalOpen] = useState(false);
   const [form, setForm] = useState(EMPTY_FORM);
   const [error, setError] = useState(null);
@@ -14,10 +17,14 @@ export default function Drivers() {
 
   const load = () => {
     setLoading(true);
+    setLoadError(null);
     api
       .get('/api/auth/drivers')
       .then((res) => setDrivers(res.data.drivers))
-      .catch(() => setDrivers([]))
+      .catch((err) => {
+        setDrivers([]);
+        setLoadError(err.response?.data?.message || 'Could not reach the server.');
+      })
       .finally(() => setLoading(false));
   };
 
@@ -41,6 +48,7 @@ export default function Drivers() {
       await api.post('/api/auth/register', { ...form, role: 'driver' });
       setModalOpen(false);
       load();
+      showToast(`Driver account created for ${form.name}.`, 'success');
     } catch (err) {
       setError(err.response?.data?.message || 'Failed to create driver.');
     } finally {
@@ -60,7 +68,7 @@ export default function Drivers() {
         </button>
       </div>
 
-      <div className="bg-white rounded-2xl border border-gray-200 overflow-hidden">
+      <div className="bg-white rounded-2xl border border-gray-200 overflow-x-auto">
         <table className="w-full text-sm">
           <thead className="bg-slate-50 text-slate-500 text-xs uppercase tracking-wide">
             <tr>
@@ -76,7 +84,14 @@ export default function Drivers() {
                 </td>
               </tr>
             )}
-            {!loading && drivers.length === 0 && (
+            {!loading && loadError && (
+              <tr>
+                <td colSpan={2} className="px-5 py-6 text-center text-red-500">
+                  Failed to load drivers. {loadError}
+                </td>
+              </tr>
+            )}
+            {!loading && !loadError && drivers.length === 0 && (
               <tr>
                 <td colSpan={2} className="px-5 py-6 text-center text-slate-400">
                   No drivers yet.

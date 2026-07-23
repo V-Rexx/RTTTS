@@ -32,9 +32,9 @@ export default function ChatBot({ citySlug, onAction }) {
   };
 
   return (
-    <div className="fixed bottom-5 right-5 z-[1000] flex flex-col items-end gap-3">
+    <div className="fixed bottom-4 right-4 sm:bottom-5 sm:right-5 z-[1000] flex flex-col items-end gap-3">
       {open && (
-        <div className="w-80 h-96 bg-white rounded-2xl shadow-2xl border border-gray-200 flex flex-col overflow-hidden">
+        <div className="w-[calc(100vw-2rem)] max-w-sm h-[70vh] max-h-96 sm:w-80 sm:h-96 bg-white rounded-2xl shadow-2xl border border-gray-200 flex flex-col overflow-hidden">
           <div className="px-4 py-3 border-b border-gray-100 flex items-center justify-between bg-slate-900 text-white">
             <span className="text-sm font-semibold">CityTrack Assistant</span>
             <button onClick={() => setOpen(false)} className="text-slate-300 hover:text-white">
