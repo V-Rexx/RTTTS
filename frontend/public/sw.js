@@ -17,8 +17,8 @@
 // still exists for a future Background Sync-based retry queue if one is
 // ever added.
 
-const CACHE_NAME = 'citytrack-driver-v1';
-const APP_SHELL = ['/', '/manifest.json', '/icon.svg'];
+const CACHE_NAME = 'citytrack-driver-v2';
+const APP_SHELL = ['/driver', '/manifest.json', '/icon.svg'];
 
 self.addEventListener('install', (event) => {
   event.waitUntil(
@@ -38,10 +38,21 @@ self.addEventListener('activate', (event) => {
   self.clients.claim();
 });
 
+// Network-first: always try to get the latest app shell/assets, only
+// falling back to cache when offline. Cache-first here is what caused a
+// browser that had ever loaded the driver page to keep serving a stale
+// index.html referencing JS/CSS chunk hashes that no longer exist after
+// the next deploy — a 404 that blanked the whole page.
 self.addEventListener('fetch', (event) => {
   if (event.request.method !== 'GET') return;
   event.respondWith(
-    caches.match(event.request).then((cached) => cached || fetch(event.request))
+    fetch(event.request)
+      .then((response) => {
+        const copy = response.clone();
+        caches.open(CACHE_NAME).then((cache) => cache.put(event.request, copy));
+        return response;
+      })
+      .catch(() => caches.match(event.request))
   );
 });
 
