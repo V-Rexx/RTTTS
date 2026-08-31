@@ -10,6 +10,7 @@ import { upsertById } from '../utils/upsertById';
 import RoutePolyline from '../components/RoutePolyline';
 import StopMarker from '../components/StopMarker';
 import BusMarker from '../components/BusMarker';
+import UserLocationMarker from '../components/UserLocationMarker';
 import ChatBot from '../components/ChatBot';
 
 function formatDuration(seconds) {
@@ -34,10 +35,15 @@ export default function PassengerMap() {
   const [catchableLoading, setCatchableLoading] = useState(false);
   const [catchableError, setCatchableError] = useState(null);
 
+  const [userLocation, setUserLocation] = useState(null);
+  const [locating, setLocating] = useState(false);
+  const [locateError, setLocateError] = useState(null);
+
   const routeByIdRef = useRef({});
   const stopsRef = useRef([]);
   const mapRef = useRef(null);
   const stopMarkerRefs = useRef({});
+  const watchIdRef = useRef(null);
 
   useEffect(() => {
     routeByIdRef.current = Object.fromEntries(routes.map((r) => [r._id, r]));
@@ -201,6 +207,51 @@ export default function PassengerMap() {
         setCatchableError('Could not get your location.');
         setCatchableLoading(false);
       }
+    );
+  };
+
+  useEffect(() => {
+    return () => {
+      if (watchIdRef.current !== null) {
+        navigator.geolocation.clearWatch(watchIdRef.current);
+      }
+    };
+  }, []);
+
+  const handleLocateMe = () => {
+    if (!navigator.geolocation) {
+      setLocateError('Geolocation is not supported by this browser.');
+      return;
+    }
+
+    setLocating(true);
+    setLocateError(null);
+
+    navigator.geolocation.getCurrentPosition(
+      ({ coords }) => {
+        const next = { lat: coords.latitude, lng: coords.longitude, accuracy: coords.accuracy };
+        setUserLocation(next);
+        setLocating(false);
+        mapRef.current?.flyTo([next.lat, next.lng], 16, { duration: 1 });
+      },
+      () => {
+        setLocateError('Could not get your location.');
+        setLocating(false);
+      },
+      { enableHighAccuracy: true, timeout: 15000 }
+    );
+
+    // Keep the dot live as the device moves, without re-centering the map
+    // on every ping (only the button press above does that).
+    if (watchIdRef.current !== null) {
+      navigator.geolocation.clearWatch(watchIdRef.current);
+    }
+    watchIdRef.current = navigator.geolocation.watchPosition(
+      ({ coords }) => {
+        setUserLocation({ lat: coords.latitude, lng: coords.longitude, accuracy: coords.accuracy });
+      },
+      null,
+      { enableHighAccuracy: true, maximumAge: 5000 }
     );
   };
 
@@ -391,7 +442,29 @@ export default function PassengerMap() {
             onSelect={() => handleSelectBus(bus._id)}
           />
         ))}
+
+        <UserLocationMarker position={userLocation} />
       </MapContainer>
+
+      <div className="absolute bottom-6 right-4 z-[1000] flex flex-col items-end gap-2">
+        {locateError && (
+          <div className="max-w-56 bg-white rounded-xl shadow-lg border border-gray-200 px-3 py-2 text-xs text-slate-600">
+            {locateError}
+          </div>
+        )}
+        <button
+          onClick={handleLocateMe}
+          disabled={locating}
+          aria-label="Locate me"
+          className="w-11 h-11 rounded-full bg-white shadow-lg border border-gray-200 flex items-center justify-center hover:bg-slate-50 transition disabled:opacity-60"
+        >
+          {locating ? (
+            <span className="w-4 h-4 border-2 border-slate-300 border-t-slate-700 rounded-full animate-spin" />
+          ) : (
+            <span className="text-lg">🎯</span>
+          )}
+        </button>
+      </div>
 
       {selectedBus && (
         <div className="absolute bottom-6 left-1/2 -translate-x-1/2 z-[1000] max-w-[90vw] bg-white rounded-2xl shadow-lg border border-gray-200 px-4 py-2.5 flex items-center gap-3">
