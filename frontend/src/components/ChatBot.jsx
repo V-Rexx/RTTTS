@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import api from '../api/axios';
+import { BsChatDotsFill } from "react-icons/bs";
 
 export default function ChatBot({ citySlug, onAction }) {
   const [open, setOpen] = useState(false);
@@ -88,10 +89,10 @@ export default function ChatBot({ citySlug, onAction }) {
 
       <button
         onClick={() => setOpen((v) => !v)}
-        className="w-14 h-14 rounded-full bg-slate-900 text-white shadow-xl flex items-center justify-center text-2xl hover:bg-slate-800 transition"
+        className="w-14 h-14 rounded-full text-white shadow-[0_0_15px_rgba(0,0,0,0.3)] hover:shadow-xl flex items-center justify-center text-2xl transition"
         aria-label="Open chat assistant"
       >
-        💬
+        <BsChatDotsFill color='black'/>
       </button>
     </div>
   );

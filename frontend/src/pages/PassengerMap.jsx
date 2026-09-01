@@ -5,18 +5,16 @@ import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import api from '../api/axios';
 import { getPassengerSocket } from '../socket/socket';
-import { toLatLng } from '../utils/geo';
+import { toLatLng, haversineDistanceMeters, formatDistance } from '../utils/geo';
 import { upsertById } from '../utils/upsertById';
 import RoutePolyline from '../components/RoutePolyline';
 import StopMarker from '../components/StopMarker';
 import BusMarker from '../components/BusMarker';
 import UserLocationMarker from '../components/UserLocationMarker';
+import WalkingRoutePolyline from '../components/WalkingRoutePolyline';
+import { TbBusStop } from "react-icons/tb";
+import { MdOutlineMyLocation } from "react-icons/md";
 import ChatBot from '../components/ChatBot';
-
-function formatDuration(seconds) {
-  if (seconds < 60) return `${Math.round(seconds)}s`;
-  return `${Math.round(seconds / 60)} min`;
-}
 
 export default function PassengerMap() {
   const { slug } = useParams();
@@ -31,9 +29,12 @@ export default function PassengerMap() {
 
   const [pulsingRouteId, setPulsingRouteId] = useState(null);
   const [selectedBusId, setSelectedBusId] = useState(null);
-  const [catchableResults, setCatchableResults] = useState(null);
-  const [catchableLoading, setCatchableLoading] = useState(false);
-  const [catchableError, setCatchableError] = useState(null);
+
+  const [nearestStopsOpen, setNearestStopsOpen] = useState(false);
+  const [nearestStops, setNearestStops] = useState([]);
+  const [nearestLoading, setNearestLoading] = useState(false);
+  const [nearestError, setNearestError] = useState(null);
+  const [directionsStop, setDirectionsStop] = useState(null);
 
   const [userLocation, setUserLocation] = useState(null);
   const [locating, setLocating] = useState(false);
@@ -60,7 +61,9 @@ export default function PassengerMap() {
       setLoading(true);
       setError(null);
       setBuses({});
-      setCatchableResults(null);
+      setNearestStopsOpen(false);
+      setNearestStops([]);
+      setDirectionsStop(null);
       try {
         const [cityRes, routesRes, stopsRes, liveRes] = await Promise.all([
           api.get(`/api/cities/${slug}`),
@@ -180,34 +183,60 @@ export default function PassengerMap() {
     return stopsRef.current.find((s) => s.name.toLowerCase().includes(needle));
   };
 
-  const handleFindMyBus = () => {
-    if (!navigator.geolocation) {
-      setCatchableError('Geolocation is not supported by this browser.');
+  const handleFindNearestStops = () => {
+    if (nearestStopsOpen) {
+      setNearestStopsOpen(false);
       return;
     }
-    setCatchableLoading(true);
-    setCatchableError(null);
+    if (!navigator.geolocation) {
+      setNearestError('Geolocation is not supported by this browser.');
+      return;
+    }
+    setNearestLoading(true);
+    setNearestError(null);
     navigator.geolocation.getCurrentPosition(
-      async ({ coords }) => {
-        try {
-          const { data } = await api.get(
-            `/api/buses/catchable?lat=${coords.latitude}&lng=${coords.longitude}`
-          );
-          setCatchableResults(data.catchableBuses);
-          if (data.catchableBuses.length === 0) {
-            setCatchableError(data.reason || 'No catchable buses right now.');
-          }
-        } catch (err) {
-          setCatchableError(err.response?.data?.message || 'Failed to find nearby buses.');
-        } finally {
-          setCatchableLoading(false);
+      ({ coords }) => {
+        const origin = { lat: coords.latitude, lng: coords.longitude, accuracy: coords.accuracy };
+        setUserLocation(origin);
+
+        const sorted = stopsRef.current
+          .map((stop) => {
+            const [lat, lng] = toLatLng(stop.location.coordinates);
+            return { stop, lat, lng, distance: haversineDistanceMeters(origin.lat, origin.lng, lat, lng) };
+          })
+          .sort((a, b) => a.distance - b.distance);
+
+        setNearestStops(sorted);
+        setNearestLoading(false);
+        setNearestStopsOpen(true);
+        if (sorted.length === 0) {
+          setNearestError('No bus stops found in this city.');
         }
       },
       () => {
-        setCatchableError('Could not get your location.');
-        setCatchableLoading(false);
-      }
+        setNearestError('Could not get your location.');
+        setNearestLoading(false);
+      },
+      { enableHighAccuracy: true, timeout: 15000 }
     );
+  };
+
+  const handleSelectNearestStop = (entry) => {
+    setDirectionsStop({
+      stopId: entry.stop._id,
+      name: entry.stop.name,
+      lat: entry.lat,
+      lng: entry.lng,
+      distance: entry.distance,
+      origin: { lat: userLocation.lat, lng: userLocation.lng },
+    });
+    setNearestStopsOpen(false);
+    const bounds = L.latLngBounds([
+      [userLocation.lat, userLocation.lng],
+      [entry.lat, entry.lng],
+    ]);
+    mapRef.current?.flyToBounds(bounds, { padding: [80, 80], duration: 1 });
+    setTimeout(() => stopMarkerRefs.current[entry.stop._id]?.openPopup?.(), 700);
   };
 
   useEffect(() => {
@@ -324,8 +353,7 @@ export default function PassengerMap() {
     );
   }
 
-  const highlightedStopIds = new Set((catchableResults || []).map((r) => r.stop._id));
-  const highlightedBusIds = new Set((catchableResults || []).map((r) => r.busId));
+  const highlightedStopIds = new Set(directionsStop ? [directionsStop.stopId] : []);
 
   const selectedBus = selectedBusId ? buses[selectedBusId] : null;
   const visibleRouteIds = new Set(
@@ -351,19 +379,20 @@ export default function PassengerMap() {
       </header>
 
       <button
-        onClick={handleFindMyBus}
-        disabled={catchableLoading}
-        className="absolute top-20 right-4 sm:top-4 z-[1000] bg-slate-900 text-white text-xs font-semibold px-4 py-3 rounded-2xl shadow-lg hover:bg-slate-800 transition disabled:opacity-60"
+        onClick={handleFindNearestStops}
+        disabled={nearestLoading}
+        className="absolute top-20 right-4 sm:top-4 z-[1000] text-black text-xs font-semibold px-4 py-3 rounded-2xl shadow-[0_0_15px_rgba(0,0,0,0.3)] hover:shadow-xl transition disabled:opacity-60 flex items-center"
       >
-        {catchableLoading ? 'Locating...' : '📍 Find my bus'}
+        <TbBusStop className='size-7 pr-1' color='#8B1E2D'/>
+        {nearestLoading ? 'Locating...' : 'Nearest Bus Stop'}
       </button>
 
-      {catchableResults !== null && (
+      {nearestStopsOpen && (
         <div className="absolute top-36 right-4 sm:top-20 z-[1000] w-[85vw] max-w-72 max-h-[60vh] overflow-y-auto bg-white rounded-2xl shadow-xl border border-gray-200">
           <div className="px-4 py-3 border-b border-gray-100 flex items-center justify-between">
-            <span className="text-sm font-semibold text-slate-900">Catchable buses</span>
+            <span className="text-sm font-semibold text-slate-900">Nearest bus stops</span>
             <button
-              onClick={() => setCatchableResults(null)}
+              onClick={() => setNearestStopsOpen(false)}
               className="text-slate-400 hover:text-slate-700"
               aria-label="Close"
             >
@@ -371,35 +400,18 @@ export default function PassengerMap() {
             </button>
           </div>
 
-          {catchableError && (
-            <div className="px-4 py-4 text-xs text-slate-500">{catchableError}</div>
+          {nearestError && (
+            <div className="px-4 py-4 text-xs text-slate-500">{nearestError}</div>
           )}
 
-          {catchableResults.map((r) => (
+          {nearestStops.map((entry) => (
             <button
-              key={`${r.busId}-${r.stop._id}`}
-              onClick={() => {
-                setSelectedBusId(r.busId);
-                const liveBus = buses[r.busId];
-                const target =
-                  liveBus && typeof liveBus.lat === 'number'
-                    ? [liveBus.lat, liveBus.lng]
-                    : [r.stop.lat, r.stop.lng];
-                mapRef.current?.flyTo(target, 15, { duration: 1 });
-              }}
+              key={entry.stop._id}
+              onClick={() => handleSelectNearestStop(entry)}
               className="w-full text-left px-4 py-3 border-b border-gray-100 last:border-0 hover:bg-slate-50 transition"
             >
-              <div className="text-sm font-semibold text-slate-800">
-                Bus {r.busNumber}
-                {routeByIdRef.current[r.route]?.routeNumber && (
-                  <span className="text-slate-400 font-normal"> · Route {routeByIdRef.current[r.route].routeNumber}</span>
-                )}
-              </div>
-              <div className="text-xs text-slate-500 mt-0.5">via {r.stop.name}</div>
-              <div className="text-xs text-slate-500 mt-1 flex gap-3">
-                <span>🚶 {formatDuration(r.walkTimeSeconds)}</span>
-                <span>🚌 ETA {formatDuration(r.busEtaSeconds)}</span>
-              </div>
+              <div className="text-sm font-semibold text-slate-800">{entry.stop.name}</div>
+              <div className="text-xs text-slate-500 mt-1">🚶 {formatDistance(entry.distance)} away</div>
             </button>
           ))}
         </div>
@@ -435,18 +447,20 @@ export default function PassengerMap() {
         ))}
 
         {Object.values(buses).map((bus) => (
-          <BusMarker
-            key={bus._id}
-            bus={bus}
-            highlighted={highlightedBusIds.has(bus._id)}
-            onSelect={() => handleSelectBus(bus._id)}
-          />
+          <BusMarker key={bus._id} bus={bus} onSelect={() => handleSelectBus(bus._id)} />
         ))}
+
+        {directionsStop && (
+          <WalkingRoutePolyline
+            start={directionsStop.origin}
+            end={{ lat: directionsStop.lat, lng: directionsStop.lng }}
+          />
+        )}
 
         <UserLocationMarker position={userLocation} />
       </MapContainer>
 
-      <div className="absolute bottom-6 right-4 z-[1000] flex flex-col items-end gap-2">
+      <div className="absolute bottom-6 left-4 z-[1000] flex flex-col items-start gap-2">
         {locateError && (
           <div className="max-w-56 bg-white rounded-xl shadow-lg border border-gray-200 px-3 py-2 text-xs text-slate-600">
             {locateError}
@@ -456,27 +470,44 @@ export default function PassengerMap() {
           onClick={handleLocateMe}
           disabled={locating}
           aria-label="Locate me"
-          className="w-11 h-11 rounded-full bg-white shadow-lg border border-gray-200 flex items-center justify-center hover:bg-slate-50 transition disabled:opacity-60"
+          className="w-11 h-11 rounded-full border shadow-[0_0_15px_rgba(0,0,0,0.3)] hover:shadow-xl border-gray-200 flex items-center justify-center transition disabled:opacity-60"
         >
           {locating ? (
             <span className="w-4 h-4 border-2 border-slate-300 border-t-slate-700 rounded-full animate-spin" />
           ) : (
-            <span className="text-lg">🎯</span>
+            <span className="text-lg"><MdOutlineMyLocation /></span>
           )}
         </button>
       </div>
 
-      {selectedBus && (
-        <div className="absolute bottom-6 left-1/2 -translate-x-1/2 z-[1000] max-w-[90vw] bg-white rounded-2xl shadow-lg border border-gray-200 px-4 py-2.5 flex items-center gap-3">
-          <span className="text-sm font-medium text-slate-800 truncate">
-            Showing Route {selectedBus.routeNumber || '—'} · Bus {selectedBus.busNumber}
-          </span>
-          <button
-            onClick={() => setSelectedBusId(null)}
-            className="text-slate-400 hover:text-slate-700 text-sm font-medium flex-shrink-0"
-          >
-            Hide
-          </button>
+      {(directionsStop || selectedBus) && (
+        <div className="absolute bottom-6 left-1/2 -translate-x-1/2 z-[1000] flex flex-col items-center gap-2">
+          {directionsStop && (
+            <div className="max-w-[90vw] bg-white rounded-2xl shadow-lg border border-gray-200 px-4 py-2.5 flex items-center gap-3">
+              <span className="text-sm font-medium text-slate-800 truncate">
+                🚶 Walking to {directionsStop.name} · {formatDistance(directionsStop.distance)}
+              </span>
+              <button
+                onClick={() => setDirectionsStop(null)}
+                className="text-slate-400 hover:text-slate-700 text-sm font-medium flex-shrink-0"
+              >
+                Clear
+              </button>
+            </div>
+          )}
+          {selectedBus && (
+            <div className="max-w-[90vw] bg-white rounded-2xl shadow-lg border border-gray-200 px-4 py-2.5 flex items-center gap-3">
+              <span className="text-sm font-medium text-slate-800 truncate">
+                Showing Route {selectedBus.routeNumber || '—'} · Bus {selectedBus.busNumber}
+              </span>
+              <button
+                onClick={() => setSelectedBusId(null)}
+                className="text-slate-400 hover:text-slate-700 text-sm font-medium flex-shrink-0"
+              >
+                Hide
+              </button>
+            </div>
+          )}
         </div>
       )}
 
